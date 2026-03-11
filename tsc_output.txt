@@ -1,0 +1,14 @@
+﻿src/components/Auth/ProtectedRoute.tsx(1,10): error TS1484: 'ReactNode' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.
+src/components/Auth/ProtectedRoute.tsx(3,25): error TS2307: Cannot find module '../../context/AuthContext' or its corresponding type declarations.
+src/components/Auth/ProtectedRoute.tsx(5,28): error TS2307: Cannot find module '../../types/rbac' or its corresponding type declarations.
+src/components/Auth/ProtectedRoute.tsx(6,53): error TS2307: Cannot find module '../ui/alert' or its corresponding type declarations.
+src/components/Auth/RoleGate.tsx(1,10): error TS1484: 'ReactNode' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.
+src/components/Auth/RoleGate.tsx(3,38): error TS2307: Cannot find module '../../types/rbac' or its corresponding type declarations.
+src/hooks/useHierarchy.ts(1,1): error TS6133: 'useMemo' is declared but its value is never read.
+src/hooks/useHierarchy.ts(2,25): error TS2307: Cannot find module '../context/AuthContext' or its corresponding type declarations.
+src/hooks/useHierarchy.ts(4,28): error TS2307: Cannot find module '../types/rbac' or its corresponding type declarations.
+src/hooks/usePermissions.ts(2,25): error TS2307: Cannot find module '../context/AuthContext' or its corresponding type declarations.
+src/hooks/usePermissions.ts(3,38): error TS2307: Cannot find module '../types/rbac' or its corresponding type declarations.
+src/hooks/usePermissions.ts(4,68): error TS2307: Cannot find module '../config/permissions' or its corresponding type declarations.
+src/hooks/usePermissions.ts(9,9): error TS6133: 'permissions' is declared but its value is never read.
+src/routes/routes.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
