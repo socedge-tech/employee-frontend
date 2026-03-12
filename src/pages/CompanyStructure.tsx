@@ -98,54 +98,48 @@ export function CompanyStructure() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-semibold text-gray-900">Company Structure</h1>
-          <p className="text-gray-500 mt-1">Manage organizational hierarchy and departments</p>
+          <h1 className="text-2xl font-bold text-gray-900">Corporate Structure</h1>
+          <p className="text-gray-500 mt-1 text-sm">Manage your organization structure and details</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" className="gap-2" onClick={() => navigate("/company-structure/settings")}>
-            <Settings className="w-4 h-4" />
-            Company Settings
-          </Button>
-          <Button className="gap-2" onClick={() => navigate("/company-structure/add-department")}>
-            <Plus className="w-4 h-4" />
-            Add Department
-          </Button>
-        </div>
+        {companyDetails && (
+          <div className="flex items-center gap-3">
+            <Button variant="outline" className="gap-2" onClick={() => navigate("/company-structure/settings")}>
+              <Settings className="w-4 h-4" />
+              Company Settings
+            </Button>
+            <Button className="gap-2" onClick={() => navigate("/company-structure/add-department")}>
+              <Plus className="w-4 h-4" />
+              Add Department
+            </Button>
+          </div>
+        )}
       </div>
 
-      {!companyDetails && (
-        <Card className="border-indigo-200 bg-indigo-50">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-4">
-              <div className="p-2 bg-indigo-100 rounded-lg">
-                <Building2 className="w-6 h-6 text-indigo-600" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-indigo-900 mb-1">
-                  Complete Your Company Structure Setup
-                </h3>
-                <p className="text-sm text-indigo-700 mb-3">
-                  Configure legal entity details, organizational structure, office locations, and HR/payroll settings to establish the foundation for your HRIS system.
-                </p>
-                <Button 
-                  size="sm" 
-                  onClick={() => navigate("/company-structure/settings")}
-                  className="bg-indigo-600 hover:bg-indigo-700"
-                >
-                  Configure Company Settings
-                </Button>
-              </div>
+      {!companyDetails ? (
+        <Card className="border-dashed border-gray-300 shadow-sm mt-8">
+          <CardContent className="flex flex-col items-center justify-center text-center py-24">
+            <div className="w-20 h-20 bg-[#EFF4FF] rounded-full flex items-center justify-center mb-6">
+              <Building2 className="w-10 h-10 text-[#3B82F6]" />
             </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">No Company Structure Defined</h2>
+            <p className="text-gray-500 max-w-lg mb-8 text-sm">
+              Set up your company structure with legal, organizational, geographical, and HR/payroll information to get started.
+            </p>
+            <Button 
+              onClick={() => navigate("/company-structure/settings")}
+              className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-8 h-11 rounded-lg shadow-sm gap-2 font-medium"
+            >
+              <Plus className="w-4 h-4" />
+              Setup Company Structure
+            </Button>
           </CardContent>
         </Card>
-      )}
+      ) : (
+        <>
+          <CompanyOverviewCard companyData={companyDetails} totalEmployees={1247} />
 
-      {companyDetails && (
-        <CompanyOverviewCard companyData={companyDetails} totalEmployees={1247} />
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
           <Card>
             <CardHeader>
               <CardTitle>Organization Hierarchy</CardTitle>
@@ -398,7 +392,9 @@ export function CompanyStructure() {
             </CardContent>
           </Card>
         </div>
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
