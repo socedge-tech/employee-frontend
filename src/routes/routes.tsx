@@ -8,7 +8,10 @@ import ForgotPassword from "../pages/Auth/ForgetPassword/ForgotPassword";
 import { ProtectedRoute } from "../components/Auth/ProtectedRoute.tsx";
 import { MainLayout } from "../components/layout/MainLayout.tsx";
 import { CompanyStructure } from "../pages/CompanyStructure.tsx";
-import EmployeeManagement from "../pages/EmployeeManagement.tsx";
+import { EmployeeManagement } from "../pages/EmployeeManagement.tsx";
+import { CompanySettings } from "../pages/CompanySettings.tsx";
+import { AddDepartment } from "../pages/AddDepartment.tsx";
+import { AddEmployee } from "../pages/AddEmployee.tsx";
 
 export default function AppRoutes() {
   return (
@@ -23,7 +26,12 @@ export default function AppRoutes() {
       <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
         <Route index element={<CompanyStructure />} />
         <Route path="/company-structure" element={<CompanyStructure />} />
+        <Route path="/company-structure/settings" element={<CompanySettings />} />
+        <Route path="/company-structure/add-department" element={<AddDepartment />} />
+        <Route path="/company-structure/edit-department/:id" element={<AddDepartment />} />
         <Route path="/employee-management" element={<EmployeeManagement />} />
+        <Route path="/employee-management/add-employee" element={<AddEmployee />} />
+        <Route path="/employee-management/edit-employee/:id" element={<AddEmployee />} />
       </Route>
 
       {/* Fallback to login or dashboard could be added here */}
