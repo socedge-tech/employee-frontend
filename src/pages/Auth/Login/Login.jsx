@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
-import { loginUser } from "../../../api/auth/auth";
+
 import { useTheme } from "../../../hooks/useTheme";
+import { useAuth } from "../../../context/AuthContext.tsx";
 import AuthLayout from "../../../components/Auth/AuthLayout";
 
 
@@ -85,72 +86,27 @@ function Login() {
     return !newErrors.email && !newErrors.password;
   };
 
+  const { login } = useAuth();
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Weekend check
-    // const today = new Date().getDay();
-    // if (today === 0 || today === 6) {
-    //   navigate("/account-disabled", {
-    //     state: {
-    //       message:
-    //         "Your account is temporarily deactivated on weekends for routine system checks. Please try again on Monday.",
-    //     },
-    //   });
-    //   return;
-    // }
 
     if (!validateForm()) return;
 
     setIsSubmitting(true);
 
     try {
-      const res = await loginUser(formData.email, formData.password);
-
-      console.log("LOGIN RESPONSE:", res);
-
-      // FIRST TIME USER → GO TO RESET PASSWORD
-      if (res.status === "FORCE_PASSWORD_CHANGE") {
-        localStorage.setItem("pendingEmail", formData.email);
-        localStorage.setItem("oldPassword", formData.password);
-        handleRememberLogic();
-        navigate("/reset-password");
-        return;
-      }
-
-      // OTP SENT
-      if (res.message === "OTP sent to your registered email address.") {
-        localStorage.setItem("pendingEmail", formData.email);
-        handleRememberLogic();
-        navigate("/verify-login");
-        return;
-      }
-
-      // SUCCESS → STILL OTP REQUIRED
-      if (res.status === "SUCCESS") {
-        localStorage.setItem("pendingEmail", formData.email);
-        handleRememberLogic();
-        navigate("/verify-login");
-        return;
-      }
+      // Mock login using AuthContext
+      await login(formData.email, formData.password);
+      
+      handleRememberLogic();
+      navigate("/");
     } catch (error) {
-      const backendMsg =
-        error?.data?.error || error?.data?.message || error?.message || "Login failed";
-
-
-      setErrors({
-        email: "",
-        password: "",
-      });
-
-      // Clean message (remove "Attempt X/3")
-      const displayMsg = backendMsg.split(". Attempt")[0];
-
       setConfirmModal({
         open: true,
-        actionType: "authError", // Blue theme
+        actionType: "authError",
         title: "Login Failed",
-        message: displayMsg,
+        message: error.message || "Invalid credentials",
         confirmText: "Try Again",
       });
     }
