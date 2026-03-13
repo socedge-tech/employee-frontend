@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { ArrowLeft, Building2, Save, MapPin, Briefcase, Calendar, ChevronRight } from "lucide-react";
+import { ArrowLeft, Building2, Save, MapPin, Briefcase, Calendar, ChevronRight, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardContent, CardTitle } from "../components/ui/card.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { toast } from "sonner";
+import { getOrganizations, createOrganization, updateOrganization } from "../api/organizations.ts";
 
 interface CompanyData {
   // Legal Entity & Tax Data
@@ -11,6 +12,8 @@ interface CompanyData {
   companyCode: string;
   taxRegistrationNumbers: {
     pan?: string;
+    tin?: string;
+    sin?: string;
     ein?: string;
     siret?: string;
     other?: string;
@@ -50,6 +53,7 @@ interface CompanyData {
     };
     timeZone: string;
     taxLocation: string;
+    gst?: string;
   }>;
 
   // HR & Payroll Structure
@@ -65,10 +69,12 @@ interface CompanyData {
 }
 
 const initialCompanyData: CompanyData = {
-  legalEntityName: "TechCorp Inc.",
-  companyCode: "TC001",
+  legalEntityName: "",
+  companyCode: "",
   taxRegistrationNumbers: {
     pan: "",
+    tin: "",
+    sin: "",
     ein: "",
     siret: "",
     other: "",
@@ -108,6 +114,8 @@ export function CompanySettings() {
   const [companyData, setCompanyData] = useState<CompanyData>(initialCompanyData);
   const [activeTab, setActiveTab] = useState<"legal" | "organizational" | "geographical" | "hrPayroll">("legal");
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [orgId, setOrgId] = useState<number | null>(null);
 
   // Calculate completion percentage
   const calculateCompletion = () => {
@@ -121,7 +129,7 @@ export function CompanySettings() {
     if (companyData.currency) completed++;
 
     // Organizational fields (1)
-    if (companyData.businessUnits.length > 0 || companyData.costCenters.length > 0) completed++;
+    if ((companyData.businessUnits || []).some(bu => bu.trim()) || (companyData.costCenters || []).some(cc => cc.trim())) completed++;
 
     // Geographical fields (1)
     if (companyData.locations.length > 0) completed++;
@@ -141,11 +149,112 @@ export function CompanySettings() {
     // Load saved company data from localStorage
     const savedData = localStorage.getItem("companyData");
     if (savedData) {
-      setCompanyData(JSON.parse(savedData));
+      try {
+        const parsed = JSON.parse(savedData);
+        // Map data from CompanyStructure format (singular/string) to CompanySettings format (plural/array)
+        const mappedData = {
+          ...initialCompanyData,
+          ...parsed,
+          businessUnits: parsed.businessUnits || (parsed.businessUnit ? [parsed.businessUnit] : []),
+          costCenters: parsed.costCenters || (parsed.costCenter ? [parsed.costCenter] : []),
+          locations: parsed.locations || [],
+          workingCalendar: parsed.workingCalendar || initialCompanyData.workingCalendar,
+          taxRegistrationNumbers: parsed.taxRegistrationNumbers || {
+            pan: parsed.pan || "",
+            tin: parsed.tin || "",
+            sin: parsed.sin || "",
+            ein: parsed.ein || "",
+            siret: parsed.siret || "",
+            other: parsed.otherTaxId || "",
+          },
+          legalAddress: parsed.legalAddress || {
+            street: parsed.street || parsed.address || "",
+            city: parsed.city || "",
+            state: parsed.state || "",
+            zipCode: parsed.zip || parsed.zipCode || "",
+            country: parsed.country || "",
+          }
+        };
+        setCompanyData(mappedData);
+      } catch (e) {
+        console.error("Failed to parse localStorage companyData", e);
+      }
     }
+
+    const loadOrg = async () => {
+      try {
+        const orgs = await getOrganizations();
+        const organization = Array.isArray(orgs) ? orgs[0] : orgs;
+        
+        if (organization && organization.id) {
+          const mainOrg = organization;
+          setOrgId(mainOrg.id);
+          setCompanyData({
+            legalEntityName: mainOrg.entity_name || "",
+            companyCode: mainOrg.company_code || "",
+            companyType: mainOrg.company_type || "Private Limited",
+            jurisdiction: mainOrg.jurisdiction || "",
+            currency: mainOrg.currency || "USD",
+            fiscalYearEnd: mainOrg.fiscal_year_end || "",
+            taxRegistrationNumbers: {
+              pan: mainOrg.pan || "",
+              tin: mainOrg.tin || "",
+              sin: mainOrg.sin || "",
+              ein: mainOrg.ein || "",
+              siret: mainOrg.siret || "",
+              other: mainOrg.other_tax_id || "",
+            },
+            legalAddress: {
+              street: mainOrg.address || "",
+              city: mainOrg.city || "",
+              state: mainOrg.state || "",
+              zipCode: mainOrg.zip || "",
+              country: mainOrg.country || "",
+            },
+            departments: [],
+            businessUnits: mainOrg.business_unit ? mainOrg.business_unit.split(",").map(i => i.trim()) : [],
+            costCenters: mainOrg.cost_center ? mainOrg.cost_center.split(",").map(i => i.trim()) : [],
+            jobArchitecture: {
+              enabled: mainOrg.job_architecture || false,
+              levels: [],
+            },
+            locations: (mainOrg.branches || []).map((branch: any) => ({
+              id: branch.id.toString(),
+              locationCode: branch.branch_code || "",
+              locationName: branch.branch_name || "",
+              address: {
+                street: branch.address || "",
+                city: branch.city || "",
+                state: branch.state || "",
+                zipCode: branch.zip || "",
+                country: branch.country || "",
+              },
+              timeZone: branch.time_zone || "",
+              taxLocation: branch.tax_location || "",
+              gst: branch.gst || "",
+            })),
+            payrollStatutoryUnit: mainOrg.payroll_statutory_unit || "",
+            legalEmployer: mainOrg.legal_employer || "",
+            legislativeDataGroup: mainOrg.legislative_data_group || "",
+            payFrequency: mainOrg.pay_frequency || "Monthly",
+            workingCalendar: {
+              standardHours: mainOrg.standard_working_hours_per_week || 40,
+              workingDays: mainOrg.working_days || ["Mon", "Tue", "Wed", "Thu", "Fri"],
+              publicHolidays: mainOrg.public_holidays || [],
+            },
+          });
+        }
+      } catch (error) {
+        console.error("Failed to load organization", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadOrg();
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Validate required fields
     if (!companyData.legalEntityName || !companyData.companyCode) {
       toast.error("Required fields missing", {
@@ -158,16 +267,83 @@ export function CompanySettings() {
     setIsSaving(true);
     // Save to localStorage
     localStorage.setItem("companyData", JSON.stringify(companyData));
-    
-    setTimeout(() => {
-      setIsSaving(false);
+
+    // Save to API
+    const apiPayload = {
+      entity_name: companyData.legalEntityName,
+      company_code: companyData.companyCode,
+      company_type: companyData.companyType,
+      jurisdiction: companyData.jurisdiction,
+      currency: companyData.currency,
+      fiscal_year_end: companyData.fiscalYearEnd,
+      pan: companyData.taxRegistrationNumbers.pan,
+      tin: companyData.taxRegistrationNumbers.tin,
+      sin: companyData.taxRegistrationNumbers.sin,
+      ein: companyData.taxRegistrationNumbers.ein,
+      siret: companyData.taxRegistrationNumbers.siret,
+      other_tax_id: companyData.taxRegistrationNumbers.other,
+      address: companyData.legalAddress.street,
+      city: companyData.legalAddress.city,
+      state: companyData.legalAddress.state,
+      country: companyData.legalAddress.country,
+      zip: companyData.legalAddress.zipCode,
+      business_unit: companyData.businessUnits.filter(v => v.trim()).join(", "),
+      cost_center: companyData.costCenters.filter(v => v.trim()).join(", "),
+      job_architecture: companyData.jobArchitecture.enabled,
+      payroll_statutory_unit: companyData.payrollStatutoryUnit,
+      legal_employer: companyData.legalEmployer,
+      legislative_data_group: companyData.legislativeDataGroup,
+      pay_frequency: companyData.payFrequency,
+      standard_working_hours_per_week: companyData.workingCalendar.standardHours,
+      working_days: companyData.workingCalendar.workingDays,
+      public_holidays: companyData.workingCalendar.publicHolidays.filter(v => v.trim()),
+      branches: companyData.locations.map(loc => ({
+        branch_name: loc.locationName,
+        branch_code: loc.locationCode,
+        address: loc.address.street,
+        city: loc.address.city,
+        state: loc.address.state,
+        zip: loc.address.zipCode,
+        country: loc.address.country,
+        time_zone: loc.timeZone,
+        tax_location: loc.taxLocation,
+        gst: loc.gst
+      })),
+      branch: companyData.locations.map(loc => ({
+        branch_name: loc.locationName,
+        branch_code: loc.locationCode,
+        address: loc.address.street,
+        city: loc.address.city,
+        state: loc.address.state,
+        zip: loc.address.zipCode,
+        country: loc.address.country,
+        time_zone: loc.timeZone,
+        tax_location: loc.taxLocation,
+        gst: loc.gst
+      }))
+    };
+
+    try {
+      if (orgId) {
+        await updateOrganization(orgId, apiPayload);
+      } else {
+        const newOrg = await createOrganization(apiPayload);
+        setOrgId(newOrg.id);
+      }
+      
       toast.success("Company settings saved successfully!", {
         description: "Your company structure configuration has been updated.",
       });
       setTimeout(() => {
         navigate("/company-structure");
       }, 500);
-    }, 500);
+    } catch (error: any) {
+      toast.error("Failed to save to database", {
+        description: error.message || "An unexpected error occurred",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const updateField = (section: keyof CompanyData, field: string, value: any) => {
@@ -193,6 +369,7 @@ export function CompanySettings() {
       },
       timeZone: "",
       taxLocation: "",
+      gst: "",
     };
     setCompanyData((prev) => ({
       ...prev,
@@ -222,6 +399,14 @@ export function CompanySettings() {
     { id: "geographical", label: "Geographical/Location", icon: MapPin },
     { id: "hrPayroll", label: "HR & Payroll", icon: Calendar },
   ];
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -638,7 +823,7 @@ export function CompanySettings() {
                       onChange={(e) =>
                         setCompanyData({
                           ...companyData,
-                          businessUnits: e.target.value.split("\n").filter((v) => v.trim()),
+                          businessUnits: e.target.value.split("\n"),
                         })
                       }
                       rows={4}
@@ -667,7 +852,7 @@ export function CompanySettings() {
                     onChange={(e) =>
                       setCompanyData({
                         ...companyData,
-                        costCenters: e.target.value.split("\n").filter((v) => v.trim()),
+                        costCenters: e.target.value.split("\n"),
                       })
                     }
                     rows={4}
@@ -720,7 +905,7 @@ export function CompanySettings() {
                             ...companyData,
                             jobArchitecture: {
                               ...companyData.jobArchitecture,
-                              levels: e.target.value.split("\n").filter((v) => v.trim()),
+                              levels: e.target.value.split("\n"),
                             },
                           })
                         }
@@ -963,6 +1148,21 @@ export function CompanySettings() {
                             placeholder="Specific taxing jurisdiction"
                           />
                         </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            GST Registration (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={location.gst}
+                            onChange={(e) =>
+                              updateLocation(location.id, "gst", e.target.value)
+                            }
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
+                            placeholder="Enter GST number"
+                          />
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -1145,7 +1345,7 @@ export function CompanySettings() {
                           ...companyData,
                           workingCalendar: {
                             ...companyData.workingCalendar,
-                            publicHolidays: e.target.value.split("\n").filter((v) => v.trim()),
+                            publicHolidays: e.target.value.split("\n"),
                           },
                         })
                       }

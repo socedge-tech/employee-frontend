@@ -1,101 +1,61 @@
-import API_BASE_URL from "../config";
-
-const API_URL = API_BASE_URL;
-
-function getAuthHeaders() {
-  const token = localStorage.getItem("token");
-  return {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  };
-}
+import { apiFetch } from "../config";
 
 export const loginUser = async (email, password) => {
-  const response = await fetch(`${API_URL}/auth/login`, {
+  const response = await apiFetch("/auth/login", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify({ email, password }),
   });
-
   const data = await response.json();
-
-  if (!response.ok) {
-    throw {
-      data: data
-    };
-  }
-
+  if (!response.ok) throw { data };
   return data;
 };
-
 
 export const verifyOtp = async (email, otp) => {
-  const response = await fetch(`${API_URL}/auth/verify-otp`, {
+  const response = await apiFetch("/auth/verify-otp", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      email,
-      otp
-    }),
+    body: JSON.stringify({ email, otp }),
   });
-
   const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || "OTP verification failed");
-  }
-
+  if (!response.ok) throw new Error(data.message || "OTP verification failed");
   return data;
-};
-
-export const resetPassword = async (data) => {
-  const response = await fetch(`${API_URL}/auth/change-password`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-
-  const json = await response.json();
-
-  if (!response.ok) {
-    throw new Error(json.message || "Password reset failed");
-  }
-
-  return json;
 };
 
 export const sendResetPasswordEmail = async (email) => {
-  const response = await fetch(`${API_URL}/auth/request-password-reset`, {
+  const response = await apiFetch("/auth/forgot-password", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
   });
-
   const json = await response.json();
-
-  if (!response.ok) {
-    throw new Error(json.error || "Failed to send reset password email");
-  }
-
+  if (!response.ok) throw new Error(json.message || "Failed to send reset password email");
   return json;
 };
 
 export const resetPasswordViaEmail = async (data) => {
-  const response = await fetch(`${API_URL}/auth/reset-password`, {
+  const response = await apiFetch("/auth/reset-password", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-
   const json = await response.json();
+  if (!response.ok) throw new Error(json.message || "Password reset failed");
+  return json;
+};
 
-  if (!response.ok) {
-    throw new Error(json.message || "Password reset failed");
-  }
+export const logout = async () => {
+  const response = await fetch("/api/auth/logout", {
+    method: "POST",
+  });
+  const json = await response.json();
+  if (!response.ok) throw new Error(json.message || "Logout failed");
+  return json;
+};
 
+// Add general reset (change) password to auth API 
+export const resetPassword = async (data) => {
+  const response = await apiFetch("/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  const json = await response.json();
+  if (!response.ok) throw new Error(json.message || "Password reset failed");
   return json;
 };

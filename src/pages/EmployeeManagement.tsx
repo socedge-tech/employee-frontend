@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
-import { Search, Filter, Download, Upload, MoreVertical, Eye, Edit, Trash2, CheckSquare, Plus, X, ChevronLeft, ChevronRight } from "lucide-react";
-import { Card, CardHeader, CardContent, CardTitle } from "../components/ui/card.tsx";
+import { Search, Filter, Download, Upload, Eye, Edit, Trash2, Plus, X, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Card, CardContent } from "../components/ui/card.tsx";
 import { Button } from "../components/ui/button.tsx";
+
+import { getEmployees, deleteEmployee } from "../api/employees.ts";
+import { toast } from "sonner";
 
 interface Employee {
   id: string;
@@ -23,19 +26,9 @@ interface Filters {
   statuses: string[];
 }
 
-const mockEmployees: Employee[] = [
-  { id: "1", name: "Sarah Johnson", email: "sarah.j@company.com", department: "Engineering", role: "Engineering Manager", location: "San Francisco", status: "Active", lastActive: "2 mins ago", avatar: "SJ" },
-  { id: "2", name: "Mike Chen", email: "mike.c@company.com", department: "Engineering", role: "Senior Developer", location: "New York", status: "Active", lastActive: "5 mins ago", avatar: "MC" },
-  { id: "3", name: "Emma Wilson", email: "emma.w@company.com", department: "Engineering", role: "Tech Lead", location: "London", status: "Active", lastActive: "1 hour ago", avatar: "EW" },
-  { id: "4", name: "John Davis", email: "john.d@company.com", department: "Sales", role: "Sales Director", location: "Chicago", status: "On Leave", lastActive: "2 days ago", avatar: "JD" },
-  { id: "5", name: "Lisa Park", email: "lisa.p@company.com", department: "Marketing", role: "Marketing Manager", location: "Los Angeles", status: "Active", lastActive: "10 mins ago", avatar: "LP" },
-  { id: "6", name: "David Lee", email: "david.l@company.com", department: "Engineering", role: "DevOps Engineer", location: "Austin", status: "Active", lastActive: "30 mins ago", avatar: "DL" },
-  { id: "7", name: "Rachel Green", email: "rachel.g@company.com", department: "Marketing", role: "Content Lead", location: "Seattle", status: "Active", lastActive: "15 mins ago", avatar: "RG" },
-  { id: "8", name: "Tom Wilson", email: "tom.w@company.com", department: "Sales", role: "Sales Ops Manager", location: "Boston", status: "Inactive", lastActive: "1 week ago", avatar: "TW" },
-];
-
 export function EmployeeManagement() {
-  const [employees] = useState(mockEmployees);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
@@ -55,10 +48,38 @@ export function EmployeeManagement() {
     statuses: [],
   });
 
+  const fetchEmployees = async () => {
+    try {
+      setIsLoading(true);
+      const data = await getEmployees();
+      const mapped: Employee[] = data.map((emp: any) => ({
+        id: emp.id.toString(),
+        name: `${emp.details?.first_name || ""} ${emp.details?.last_name || ""}`.trim() || emp.username || "Unknown",
+        email: emp.email,
+        department: emp.details?.department?.department_name || "Unassigned",
+        role: emp.details?.job_role || "Employee",
+        location: emp.details?.work_location || "Office",
+        status: (emp.status === true || emp.status === "active" ? "Active" : "Inactive") as Employee["status"],
+        lastActive: emp.created_at ? new Date(emp.created_at).toLocaleDateString() : "Recently",
+        avatar: `${emp.details?.first_name?.[0] || ""}${emp.details?.last_name?.[0] || ""}`.toUpperCase() || emp.username?.[0]?.toUpperCase() || "U",
+      }));
+      setEmployees(mapped);
+    } catch (error) {
+      console.error("Failed to fetch employees", error);
+      toast.error("Failed to load employees");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEmployees();
+  }, []);
+
   // Get unique values for filter options
-  const uniqueDepartments = Array.from(new Set(mockEmployees.map(e => e.department)));
-  const uniqueRoles = Array.from(new Set(mockEmployees.map(e => e.role)));
-  const uniqueLocations = Array.from(new Set(mockEmployees.map(e => e.location)));
+  const uniqueDepartments = Array.from(new Set(employees.map(e => e.department)));
+  const uniqueRoles = Array.from(new Set(employees.map(e => e.role)));
+  const uniqueLocations = Array.from(new Set(employees.map(e => e.location)));
   const uniqueStatuses: Employee["status"][] = ["Active", "Inactive", "On Leave"];
 
   // Close dropdown when clicking outside
@@ -196,6 +217,14 @@ export function EmployeeManagement() {
     
     return pages;
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-50">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -366,7 +395,7 @@ export function EmployeeManagement() {
                     {(selectedEmployees.length > 0 || hoveredRow !== null) && (
                       <input
                         type="checkbox"
-                        checked={selectedEmployees.length === employees.length}
+                        checked={selectedEmployees.length === employees.length && employees.length > 0}
                         onChange={toggleSelectAll}
                         className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                       />
@@ -471,6 +500,17 @@ export function EmployeeManagement() {
                                 <button 
                                   className="p-1.5 hover:bg-red-100 rounded transition-colors"
                                   title="Delete"
+                                  onClick={async () => {
+                                    if (window.confirm("Are you sure you want to delete this employee?")) {
+                                      try {
+                                        await deleteEmployee(parseInt(employee.id, 10));
+                                        toast.success("Employee deleted successfully");
+                                        fetchEmployees();
+                                      } catch (error) {
+                                        toast.error("Failed to delete employee");
+                                      }
+                                    }
+                                  }}
                                 >
                                   <Trash2 className="w-4 h-4 text-red-600" />
                                 </button>

@@ -11,7 +11,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Briefcase,
-  DollarSign
+  DollarSign,
+  Shield
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.tsx";
 import { canAccessNavItem } from "../../config/permissions.ts";
@@ -31,6 +32,7 @@ const navItems = [
   { path: "/learning", label: "Talent & Growth", icon: GraduationCap },
   { path: "/performance", label: "Performance", icon: TrendingUp },
   { path: "/engagement", label: "Engagement", icon: MessageSquare },
+  { path: "/roles-permissions", label: "Roles & Permissions", icon: Shield },
   { path: "/settings", label: "System Settings", icon: Settings },
 ];
 

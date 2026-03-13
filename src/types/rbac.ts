@@ -145,6 +145,8 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  roles?: string[];
+  permissions?: string[];
   departmentId: string;
   managerId?: string; // Direct reporting manager
   employeeId: string;

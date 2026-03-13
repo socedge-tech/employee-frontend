@@ -20,6 +20,7 @@ const ResetPassword = () => {
 
     const queryParams = new URLSearchParams(location.search);
     const urlEmail = queryParams.get("email");
+    const urlToken = queryParams.get("token");
 
     const email = !urlEmail ? localStorage.getItem("pendingEmail") : null;
     const oldPassword = !urlEmail ? localStorage.getItem("oldPassword") : null;
@@ -54,7 +55,7 @@ const ResetPassword = () => {
 
         try {
             const payload = urlEmail
-                ? { email: urlEmail, newPassword: password }
+                ? { email: urlEmail, token: urlToken, password: password }
                 : { email, oldPassword, newPassword: password };
 
             const res = urlEmail

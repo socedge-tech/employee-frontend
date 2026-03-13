@@ -1,6 +1,6 @@
-import React, { useState, useEffect, Fragment } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
-import { ArrowLeft, Save, Plus, Trash2, Users, Search, X, Shield, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Users, Search, X, Shield, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardContent, CardTitle } from "../components/ui/card.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { UserRole } from "../types/rbac.ts";
@@ -10,6 +10,11 @@ import {
   moduleDisplayNames, 
   permissionLabels 
 } from "../config/defaultPermissions.ts";
+import { getEmployees } from "../api/employees.ts";
+import { getDepartment, getDepartments, createDepartment, updateDepartment } from "../api/departments.ts";
+import { getOrganizations } from "../api/organizations.ts";
+import type { Branch } from "../api/organizations.ts";
+import { toast } from "sonner";
 
 interface Team {
   id: string;
@@ -20,27 +25,13 @@ interface Team {
   members: string[];
 }
 
-interface Employee {
+interface UIEmployee {
   id: string;
   name: string;
   title: string;
   department: string;
   avatar: string;
 }
-
-// Mock employees data
-const mockEmployees: Employee[] = [
-  { id: "1", name: "Sarah Johnson", title: "VP Engineering", department: "Engineering", avatar: "SJ" },
-  { id: "2", name: "Robert Taylor", title: "VP Sales", department: "Sales", avatar: "RT" },
-  { id: "3", name: "Jennifer Martinez", title: "VP Marketing", department: "Marketing", avatar: "JM" },
-  { id: "4", name: "Patricia Moore", title: "VP Human Resources", department: "HR", avatar: "PM" },
-  { id: "5", name: "Mike Chen", title: "Senior Engineering Manager", department: "Engineering", avatar: "MC" },
-  { id: "6", name: "Emma Wilson", title: "Engineering Manager", department: "Engineering", avatar: "EW" },
-  { id: "7", name: "David Lee", title: "DevOps Manager", department: "Engineering", avatar: "DL" },
-  { id: "8", name: "Lisa Park", title: "Mobile Lead", department: "Engineering", avatar: "LP" },
-  { id: "9", name: "John Davis", title: "Enterprise Sales Director", department: "Sales", avatar: "JD" },
-  { id: "10", name: "Amy Brown", title: "SMB Sales Manager", department: "Sales", avatar: "AB" },
-];
 
 export function AddDepartment() {
   const navigate = useNavigate();
@@ -50,11 +41,12 @@ export function AddDepartment() {
   const [departmentName, setDepartmentName] = useState("");
   const [departmentCode, setDepartmentCode] = useState("");
   const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("");
-  const [costCenter, setCostCenter] = useState("");
-  const [manager, setManager] = useState<Employee | null>(null);
-  const [parentDepartment, setParentDepartment] = useState("None");
+  const [manager, setManager] = useState<UIEmployee | null>(null);
+  const [parentDepartment, setParentDepartment] = useState<string | number>("None");
   const [budget, setBudget] = useState("");
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [organizationName, setOrganizationName] = useState("");
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("");
   const [teams, setTeams] = useState<Team[]>([]);
   
   const [showManagerSearch, setShowManagerSearch] = useState(false);
@@ -65,8 +57,8 @@ export function AddDepartment() {
   // Team modal state
   const [teamName, setTeamName] = useState("");
   const [teamDescription, setTeamDescription] = useState("");
-  const [teamLead, setTeamLead] = useState<Employee | null>(null);
-  const [teamMembers, setTeamMembers] = useState<Employee[]>([]);
+  const [teamLead, setTeamLead] = useState<UIEmployee | null>(null);
+  const [teamMembers, setTeamMembers] = useState<UIEmployee[]>([]);
   const [showTeamLeadSearch, setShowTeamLeadSearch] = useState(false);
   const [showMemberSearch, setShowMemberSearch] = useState(false);
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
@@ -77,175 +69,131 @@ export function AddDepartment() {
   );
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
 
+  const [employees, setEmployees] = useState<UIEmployee[]>([]);
+  const [departmentsList, setDepartmentsList] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   // Load department data in edit mode
   useEffect(() => {
-    if (isEditMode && id) {
-      // Mock departments data (matching CompanyStructure.tsx)
-      const mockDepartments = [
-        {
-          id: "1",
-          name: "Engineering",
-          manager: "Sarah Johnson",
-          managerId: "1",
-          code: "ENG",
-          description: "Technology and Engineering Department",
-          location: "San Francisco",
-          costCenter: "CC-001",
-          headcount: 450,
-          budget: "5000000",
-          parentDepartment: "None",
-          teams: [
-            { id: "1-1", name: "Frontend Team", lead: "Mike Chen", leadId: "5", description: "Frontend development team", members: ["5"] },
-            { id: "1-2", name: "Backend Team", lead: "Emma Wilson", leadId: "6", description: "Backend development team", members: ["6"] },
-            { id: "1-3", name: "DevOps Team", lead: "David Lee", leadId: "7", description: "DevOps and infrastructure team", members: ["7"] },
-            { id: "1-4", name: "Mobile Team", lead: "Lisa Park", leadId: "8", description: "Mobile development team", members: ["8"] },
-          ],
-        },
-        {
-          id: "2",
-          name: "Sales",
-          manager: "Robert Taylor",
-          managerId: "2",
-          code: "SAL",
-          description: "Sales and Revenue Department",
-          location: "New York",
-          costCenter: "CC-002",
-          headcount: 320,
-          budget: "3000000",
-          parentDepartment: "None",
-          teams: [
-            { id: "2-1", name: "Enterprise Sales", lead: "John Davis", leadId: "9", description: "Enterprise sales team", members: ["9"] },
-            { id: "2-2", name: "SMB Sales", lead: "Amy Brown", leadId: "10", description: "SMB sales team", members: ["10"] },
-            { id: "2-3", name: "Sales Ops", lead: "Tom Wilson", leadId: "2", description: "Sales operations team", members: ["2"] },
-          ],
-        },
-        {
-          id: "3",
-          name: "Marketing",
-          manager: "Jennifer Martinez",
-          managerId: "3",
-          code: "MKT",
-          description: "Marketing and Communications Department",
-          location: "Los Angeles",
-          costCenter: "CC-003",
-          headcount: 180,
-          budget: "2000000",
-          parentDepartment: "None",
-          teams: [
-            { id: "3-1", name: "Content Marketing", lead: "Alex Kim", leadId: "3", description: "Content marketing team", members: ["3"] },
-            { id: "3-2", name: "Product Marketing", lead: "Rachel Green", leadId: "3", description: "Product marketing team", members: ["3"] },
-            { id: "3-3", name: "Growth Marketing", lead: "Chris Anderson", leadId: "3", description: "Growth marketing team", members: ["3"] },
-          ],
-        },
-        {
-          id: "4",
-          name: "HR",
-          manager: "Patricia Moore",
-          managerId: "4",
-          code: "HR",
-          description: "Human Resources Department",
-          location: "Chicago",
-          costCenter: "CC-004",
-          headcount: 120,
-          budget: "1500000",
-          parentDepartment: "None",
-          teams: [
-            { id: "4-1", name: "Recruitment", lead: "Sam White", leadId: "4", description: "Recruitment team", members: ["4"] },
-            { id: "4-2", name: "People Ops", lead: "Nina Patel", leadId: "4", description: "People operations team", members: ["4"] },
-            { id: "4-3", name: "L&D", lead: "Mark Thompson", leadId: "4", description: "Learning and development team", members: ["4"] },
-          ],
-        },
-      ];
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        // Fetch employees and map to UIEmployee
+        const empData = await getEmployees();
+        const mappedEmployees: UIEmployee[] = empData.map((emp: any) => ({
+          id: emp.id.toString(),
+          name: `${emp.firstName} ${emp.lastName}`,
+          title: emp.designation || emp.role || "Employee",
+          department: emp.departmentId ? emp.departmentId.toString() : "",
+          avatar: `${emp.firstName?.[0] || ""}${emp.lastName?.[0] || ""}`.toUpperCase() || "U",
+        }));
+        setEmployees(mappedEmployees);
 
-      // Try to load from localStorage first
-      const savedDepartments = JSON.parse(localStorage.getItem('departments') || '[]');
-      let departmentData = savedDepartments.find((dept: any) => dept.id === id);
-      
-      // If not in localStorage, use mock data
-      if (!departmentData) {
-        departmentData = mockDepartments.find(dept => dept.id === id);
-      }
+        // Fetch departments for parent dropdown
+        const depData = await getDepartments();
+        setDepartmentsList(depData);
 
-      if (departmentData) {
-        setDepartmentName(departmentData.name || "");
-        setDepartmentCode(departmentData.code || "");
-        setDescription(departmentData.description || "");
-        setLocation(departmentData.location || "");
-        setCostCenter(departmentData.costCenter || "");
-        setParentDepartment(departmentData.parentDepartment || "None");
-        setBudget(departmentData.budget || "");
+        // Fetch organizations to get branches
+        const orgResponse = await getOrganizations();
+        const mainOrg = Array.isArray(orgResponse) ? orgResponse[0] : orgResponse;
         
-        // Set manager
-        if (departmentData.managerId || departmentData.manager) {
-          const managerId = departmentData.managerId;
-          const managerData = mockEmployees.find(emp => emp.id === managerId);
-          if (managerData) {
-            setManager(managerData);
-          } else if (departmentData.manager) {
-            // Fallback: create a mock manager from the name
-            const managerName = departmentData.manager;
-            const initials = managerName.split(' ').map((n: string) => n[0]).join('');
-            setManager({
-              id: managerId || `mgr-${id}`,
-              name: managerName,
-              title: "Department Manager",
-              department: departmentData.name,
-              avatar: initials
-            });
+        if (mainOrg) {
+          setOrganizationName(mainOrg.entity_name || "");
+          setBranches(mainOrg.branches || []);
+        }
+
+        if (isEditMode && id) {
+          const departmentData = await getDepartment(parseInt(id, 10));
+          if (departmentData) {
+            setDepartmentName(departmentData.department_name || "");
+            setDepartmentCode(departmentData.department_code || "");
+            setDescription(departmentData.description || "");
+            setSelectedBranchId(departmentData.branch_id?.toString() || "");
+            setParentDepartment(departmentData.parent_department_id?.toString() || "None");
+            setBudget(departmentData.annual_budget?.toString() || "");
+            
+            if (departmentData.manager_id) {
+              const mId = departmentData.manager_id.toString();
+              const managerData = mappedEmployees.find(emp => emp.id === mId);
+              if (managerData) {
+                setManager(managerData);
+              }
+            }
+            
+            if (departmentData.teams) {
+              const mappedTeams = departmentData.teams.map((t: any) => ({
+                id: t.id.toString(),
+                name: t.team_name,
+                description: t.description,
+                lead: t.team_lead?.username || t.team_lead_id?.toString() || "",
+                leadId: t.team_lead_id?.toString() || "",
+                members: t.members?.map((m: any) => m.user_id.toString()) || []
+              }));
+              setTeams(mappedTeams);
+            }
+
+            if (departmentData.permissions) {
+              setDepartmentPermissions(departmentData.permissions);
+            }
           }
         }
-        
-        // Set teams
-        if (departmentData.teams) {
-          setTeams(departmentData.teams);
-        }
-
-        // Set permissions if available
-        if (departmentData.permissions) {
-          setDepartmentPermissions(departmentData.permissions);
-        }
+      } catch (error) {
+        console.error("Failed to load data", error);
+        toast.error("Failed to load required data");
+      } finally {
+        setIsLoading(false);
       }
-    }
+    };
+    
+    fetchData();
   }, [isEditMode, id]);
 
-  const filteredManagers = mockEmployees.filter(emp =>
+  const filteredManagers = employees.filter((emp: UIEmployee) =>
     emp.name.toLowerCase().includes(managerSearchQuery.toLowerCase()) ||
     emp.title.toLowerCase().includes(managerSearchQuery.toLowerCase())
   );
 
-  const filteredMembers = mockEmployees.filter(emp =>
+  const filteredMembers = employees.filter((emp: UIEmployee) =>
     emp.name.toLowerCase().includes(memberSearchQuery.toLowerCase()) &&
-    !teamMembers.some(m => m.id === emp.id)
+    !teamMembers.some((m: UIEmployee) => m.id === emp.id)
   );
 
-  const handleSave = () => {
-    const departmentData = {
-      name: departmentName,
-      code: departmentCode,
-      description,
-      location,
-      costCenter,
-      manager: manager?.id,
-      parentDepartment,
-      budget,
-      teams,
-      permissions: departmentPermissions, // Include department permissions
-    };
-    console.log("Saving department:", departmentData);
-    
-    // Save to localStorage (demo purposes)
-    const existingDepartments = JSON.parse(localStorage.getItem('departments') || '[]');
-    if (isEditMode) {
-      const updatedDepartments = existingDepartments.map((dept: any) => 
-        dept.id === id ? { ...departmentData, id } : dept
-      );
-      localStorage.setItem('departments', JSON.stringify(updatedDepartments));
-    } else {
-      const newDepartment = { ...departmentData, id: `dept-${Date.now()}` };
-      localStorage.setItem('departments', JSON.stringify([...existingDepartments, newDepartment]));
+  const handleSave = async () => {
+    if (!departmentName || !departmentCode) {
+      toast.error("Missing required fields");
+      return;
     }
+
+    const payload: any = {
+      department_name: departmentName,
+      department_code: departmentCode,
+      description,
+      branch_id: selectedBranchId ? parseInt(selectedBranchId, 10) : undefined,
+      manager_id: manager?.id ? parseInt(manager.id, 10) : undefined,
+      parent_department_id: parentDepartment !== "None" ? parseInt(parentDepartment as string, 10) : null,
+      annual_budget: budget ? parseFloat(budget) : 0,
+      teams: teams.map(t => ({
+        team_name: t.name,
+        description: t.description,
+        team_lead_id: t.leadId ? parseInt(t.leadId, 10) : null,
+        team_members: t.members.map(mId => parseInt(mId, 10))
+      })),
+      permissions: departmentPermissions
+    };
     
-    navigate("/company-structure");
+    try {
+      if (isEditMode && id) {
+        await updateDepartment(parseInt(id, 10), payload);
+        toast.success("Department updated successfully");
+      } else {
+        await createDepartment(payload);
+        toast.success("Department created successfully");
+      }
+      navigate("/company-structure");
+    } catch (error) {
+      console.error("Failed to save department", error);
+      toast.error("Failed to save department");
+    }
   };
 
   const handleAddTeam = () => {
@@ -283,9 +231,9 @@ export function AddDepartment() {
   const handleEditTeam = (team: Team) => {
     setTeamName(team.name);
     setTeamDescription(team.description);
-    const lead = mockEmployees.find(e => e.id === team.leadId);
+    const lead = employees.find(e => e.id === team.leadId);
     setTeamLead(lead || null);
-    setTeamMembers(mockEmployees.filter(e => team.members.includes(e.id)));
+    setTeamMembers(employees.filter(e => team.members.includes(e.id)));
     setEditingTeam(team);
     setShowTeamModal(true);
   };
@@ -293,6 +241,14 @@ export function AddDepartment() {
   const removeMember = (memberId: string) => {
     setTeamMembers(teamMembers.filter(m => m.id !== memberId));
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-50">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
@@ -383,65 +339,64 @@ export function AddDepartment() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Location
+                        Organization
+                      </label>
+                      <input
+                        type="text"
+                        value={organizationName}
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-gray-500 cursor-not-allowed"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Branch <span className="text-red-500">*</span>
                       </label>
                       <select
-                        value={location}
-                        onChange={(e) => setLocation(e.target.value)}
+                        value={selectedBranchId}
+                        onChange={(e) => setSelectedBranchId(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       >
-                        <option value="">Select location</option>
-                        <option value="HQ - San Francisco">HQ - San Francisco</option>
-                        <option value="New York Office">New York Office</option>
-                        <option value="London Office">London Office</option>
-                        <option value="Remote">Remote</option>
-                        <option value="Multiple Locations">Multiple Locations</option>
+                        <option value="">Select branch</option>
+                        {branches.map((branch) => (
+                          <option key={branch.id} value={branch.id}>
+                            {branch.branch_name} ({branch.branch_code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Parent Department
+                      </label>
+                      <select
+                        value={parentDepartment}
+                        onChange={(e) => setParentDepartment(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="None">None (Top Level)</option>
+                        {departmentsList.map((dep: any) => (
+                          <option key={dep.id} value={dep.id}>{dep.department_name}</option>
+                        ))}
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Cost Center
+                        Annual Budget
                       </label>
-                      <input
-                        type="text"
-                        value={costCenter}
-                        onChange={(e) => setCostCenter(e.target.value)}
-                        placeholder="e.g., CC-1001"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Parent Department
-                    </label>
-                    <select
-                      value={parentDepartment}
-                      onChange={(e) => setParentDepartment(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="None">None (Top Level)</option>
-                      <option value="Engineering">Engineering</option>
-                      <option value="Sales">Sales</option>
-                      <option value="Marketing">Marketing</option>
-                      <option value="Operations">Operations</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Annual Budget
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-2.5 text-gray-500">$</span>
-                      <input
-                        type="text"
-                        value={budget}
-                        onChange={(e) => setBudget(e.target.value)}
-                        placeholder="0"
-                        className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
+                      <div className="relative">
+                        <span className="absolute left-3 top-2.5 text-gray-500">$</span>
+                        <input
+                          type="text"
+                          value={budget}
+                          onChange={(e) => setBudget(e.target.value)}
+                          placeholder="0"
+                          className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -911,21 +866,21 @@ export function AddDepartment() {
 
       {/* Add/Edit Team Modal */}
       {showTeamModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <Card className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <CardHeader>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <Card className="max-w-2xl w-full flex flex-col max-h-[90vh] shadow-2xl">
+            <CardHeader className="border-b border-gray-100 flex-shrink-0 py-4">
               <div className="flex items-center justify-between">
-                <CardTitle>{editingTeam ? "Edit Team" : "Add New Team"}</CardTitle>
+                <CardTitle className="text-xl">{editingTeam ? "Edit Team" : "Add New Team"}</CardTitle>
                 <button
                   onClick={() => setShowTeamModal(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+            <CardContent className="flex-1 overflow-y-auto py-6">
+              <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Team Name <span className="text-red-500">*</span>
@@ -935,7 +890,7 @@ export function AddDepartment() {
                     value={teamName}
                     onChange={(e) => setTeamName(e.target.value)}
                     placeholder="e.g., Frontend Team"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                   />
                 </div>
 
@@ -946,31 +901,32 @@ export function AddDepartment() {
                   <textarea
                     value={teamDescription}
                     onChange={(e) => setTeamDescription(e.target.value)}
-                    rows={2}
+                    rows={3}
                     placeholder="Brief description of the team's responsibilities..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all resize-none"
                   />
                 </div>
 
-                <div>
+                <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Team Lead
                   </label>
                   {teamLead ? (
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex items-center justify-between p-3 bg-indigo-50/50 rounded-xl border border-indigo-100">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium text-sm">
+                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium text-sm border-2 border-white shadow-sm">
                           {teamLead.avatar}
                         </div>
                         <div>
-                          <p className="font-medium text-sm">{teamLead.name}</p>
-                          <p className="text-xs text-gray-500">{teamLead.title}</p>
+                          <p className="font-semibold text-sm text-gray-900">{teamLead.name}</p>
+                          <p className="text-xs text-indigo-600 font-medium">{teamLead.title}</p>
                         </div>
                       </div>
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
                         onClick={() => setTeamLead(null)}
+                        className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-100"
                       >
                         Change
                       </Button>
@@ -979,30 +935,33 @@ export function AddDepartment() {
                     <div className="relative">
                       <Button
                         variant="outline"
-                        className="w-full gap-2"
+                        className="w-full justify-between gap-2 border-dashed border-2 hover:border-indigo-400 hover:bg-indigo-50/30 transition-all active:scale-[0.98]"
                         onClick={() => setShowTeamLeadSearch(!showTeamLeadSearch)}
                       >
-                        <Search className="w-4 h-4" />
-                        Select Team Lead
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-gray-400" />
+                          <span>Select Team Lead</span>
+                        </div>
+                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showTeamLeadSearch ? 'rotate-180' : ''}`} />
                       </Button>
 
                       {showTeamLeadSearch && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto">
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
                           <div className="p-2">
-                            {mockEmployees.map((emp) => (
+                            {employees.map((emp) => (
                               <button
                                 key={emp.id}
                                 onClick={() => {
                                   setTeamLead(emp);
                                   setShowTeamLeadSearch(false);
                                 }}
-                                className="w-full flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg transition-colors"
+                                className="w-full flex items-center gap-3 p-2.5 hover:bg-indigo-50 rounded-lg transition-colors group"
                               >
-                                <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium text-xs">
+                                <div className="w-9 h-9 bg-gray-100 group-hover:bg-white rounded-full flex items-center justify-center text-gray-600 font-medium text-xs transition-colors">
                                   {emp.avatar}
                                 </div>
                                 <div className="flex-1 text-left">
-                                  <p className="font-medium text-sm">{emp.name}</p>
+                                  <p className="font-semibold text-sm text-gray-900">{emp.name}</p>
                                   <p className="text-xs text-gray-500">{emp.title}</p>
                                 </div>
                               </button>
@@ -1015,28 +974,33 @@ export function AddDepartment() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Team Members ({teamMembers.length})
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Team Members
+                    </label>
+                    <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                      {teamMembers.length} Selected
+                    </span>
+                  </div>
                   
                   {teamMembers.length > 0 && (
-                    <div className="mb-3 space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                    <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
                       {teamMembers.map((member) => (
-                        <div key={member.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                        <div key={member.id} className="flex items-center justify-between p-2 bg-gray-50/80 rounded-lg border border-gray-100 group hover:border-indigo-200 transition-all shadow-sm hover:shadow-md">
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium text-xs">
+                            <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-700 font-medium text-xs">
                               {member.avatar}
                             </div>
-                            <div>
-                              <p className="font-medium text-sm">{member.name}</p>
-                              <p className="text-xs text-gray-500">{member.title}</p>
+                            <div className="overflow-hidden">
+                              <p className="font-semibold text-xs text-gray-900 truncate">{member.name}</p>
+                              <p className="text-[10px] text-gray-500 truncate">{member.title}</p>
                             </div>
                           </div>
                           <button
                             onClick={() => removeMember(member.id)}
-                            className="p-1 hover:bg-red-50 rounded"
+                            className="p-1 hover:bg-red-50 rounded-md transition-colors opacity-0 group-hover:opacity-100"
                           >
-                            <X className="w-4 h-4 text-red-600" />
+                            <X className="w-3.5 h-3.5 text-red-500" />
                           </button>
                         </div>
                       ))}
@@ -1046,16 +1010,16 @@ export function AddDepartment() {
                   <div className="relative">
                     <Button
                       variant="outline"
-                      className="w-full gap-2"
+                      className="w-full gap-2 border-2 border-indigo-100 hover:border-indigo-500/30 hover:bg-indigo-50/30 transition-all"
                       onClick={() => setShowMemberSearch(!showMemberSearch)}
                     >
-                      <Plus className="w-4 h-4" />
+                      <Plus className="w-4 h-4 text-indigo-600" />
                       Add Members
                     </Button>
 
                     {showMemberSearch && (
-                      <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto">
-                        <div className="p-3 border-b border-gray-200 sticky top-0 bg-white">
+                      <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-200 rounded-xl shadow-xl z-50 max-h-72 flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-200">
+                        <div className="p-3 border-b border-gray-100 bg-gray-50/50 rounded-t-xl">
                           <div className="relative">
                             <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                             <input
@@ -1063,11 +1027,12 @@ export function AddDepartment() {
                               value={memberSearchQuery}
                               onChange={(e) => setMemberSearchQuery(e.target.value)}
                               placeholder="Search employees..."
-                              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              className="w-full pl-10 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                              autoFocus
                             />
                           </div>
                         </div>
-                        <div className="p-2">
+                        <div className="p-2 overflow-y-auto flex-1">
                           {filteredMembers.map((emp) => (
                             <button
                               key={emp.id}
@@ -1075,46 +1040,52 @@ export function AddDepartment() {
                                 setTeamMembers([...teamMembers, emp]);
                                 setMemberSearchQuery("");
                               }}
-                              className="w-full flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg transition-colors"
+                              className="w-full flex items-center gap-3 p-2.5 hover:bg-indigo-50 rounded-lg transition-all group"
                             >
-                              <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium text-xs">
+                              <div className="w-8 h-8 bg-gray-100 group-hover:bg-white rounded-full flex items-center justify-center text-gray-600 font-medium text-xs">
                                 {emp.avatar}
                               </div>
                               <div className="flex-1 text-left">
-                                <p className="font-medium text-sm">{emp.name}</p>
-                                <p className="text-xs text-gray-500">{emp.title}</p>
+                                <p className="font-semibold text-sm text-gray-900">{emp.name}</p>
+                                <p className="text-[11px] text-gray-500">{emp.title}</p>
+                              </div>
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Plus className="w-4 h-4 text-indigo-600" />
                               </div>
                             </button>
                           ))}
                           {filteredMembers.length === 0 && (
-                            <p className="text-center text-gray-500 py-4 text-sm">No more employees available</p>
+                            <div className="text-center py-6">
+                              <p className="text-sm text-gray-400 italic">No more employees available</p>
+                            </div>
                           )}
                         </div>
                       </div>
                     )}
                   </div>
                 </div>
-
-                <div className="flex gap-3 pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => setShowTeamModal(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="button"
-                    className="flex-1"
-                    onClick={handleSaveTeam}
-                    disabled={!teamName}
-                  >
-                    {editingTeam ? "Update Team" : "Add Team"}
-                  </Button>
-                </div>
               </div>
             </CardContent>
+            <CardHeader className="border-t border-gray-100 flex-shrink-0 pt-4 pb-6 px-6 bg-gray-50/50">
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 font-semibold"
+                  onClick={() => setShowTeamModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 font-semibold"
+                  onClick={handleSaveTeam}
+                  disabled={!teamName}
+                >
+                  {editingTeam ? "Update Team" : "Add Team"}
+                </Button>
+              </div>
+            </CardHeader>
           </Card>
         </div>
       )}

@@ -3,12 +3,14 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { User, UserRole } from '../types/rbac';
 import { UserRole as UserRoleVal } from '../types/rbac';
+import { loginUser, verifyOtp } from '../api/auth/auth';
 
 interface AuthContextType {
   user: User | null;
   setUser: (user: User | null) => void;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<any>;
+  verifyOtp: (email: string, otp: string) => Promise<void>;
   logout: () => void;
   switchRole: (role: UserRole) => void; // For demo purposes
 }
@@ -66,48 +68,99 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null);
-
-  // Load user from localStorage on mount
-  useEffect(() => {
-    const storedUser = localStorage.getItem('currentUser');
-    if (storedUser) {
+  const [user, setUser] = useState<User | null>(() => {
+    const storedUser = localStorage.getItem('user');
+    const storedToken = localStorage.getItem('token');
+    
+    if (storedUser && storedToken) {
       try {
-        setUser(JSON.parse(storedUser));
+        return JSON.parse(storedUser);
       } catch (error) {
         console.error('Failed to parse stored user:', error);
-        localStorage.removeItem('currentUser');
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
       }
-    } else {
-      // Default to Super Admin for demo
-      const defaultUser = mockUsers['superadmin@company.com'];
-      setUser(defaultUser);
-      localStorage.setItem('currentUser', JSON.stringify(defaultUser));
     }
-  }, []);
+    return null;
+  });
 
-  // Save user to localStorage when it changes
+  // Sync user state to localStorage when it changes
   useEffect(() => {
     if (user) {
-      localStorage.setItem('currentUser', JSON.stringify(user));
+      localStorage.setItem('user', JSON.stringify(user));
     } else {
-      localStorage.removeItem('currentUser');
+      localStorage.removeItem('user');
+      // Note: We don't remove token here because logout() handles that.
+      // This effect is mainly for ensuring the object in storage is up-to-date if setUser is called.
     }
   }, [user]);
 
-  const login = async (email: string, _password?: string) => {
-    // Mock login - in production, this would call an API
-    const foundUser = mockUsers[email.toLowerCase()];
-    if (foundUser) {
-      setUser(foundUser);
-    } else {
-      throw new Error('Invalid credentials');
+  const login = async (email: string, password?: string) => {
+    try {
+      const response = await loginUser(email, password || '');
+      if (response.success) {
+        return response;
+      } else {
+        throw new Error(response.message || 'Login failed');
+      }
+    } catch (error: any) {
+      console.error('Login error:', error);
+      throw new Error(error.data?.message || error.message || 'Invalid credentials');
+    }
+  };
+
+  const verifyOtpStep = async (email: string, otp: string) => {
+    try {
+      const response = await verifyOtp(email, otp);
+      if (response.success && response.data) {
+        const { token, user: userData } = response.data;
+        
+        // Normalize backend roles to frontend UserRole enum
+        const backendRoles = userData.roles || [];
+        const normalizedRoles = backendRoles.map((r: string) => 
+          r.toUpperCase().replace(/\s+/g, '_')
+        );
+
+        // Determine primary role (highest priority)
+        let primaryRole: UserRole = UserRoleVal.EMPLOYEE;
+        if (normalizedRoles.includes(UserRoleVal.SUPER_ADMIN)) {
+          primaryRole = UserRoleVal.SUPER_ADMIN;
+        } else if (normalizedRoles.includes(UserRoleVal.ADMIN)) {
+          primaryRole = UserRoleVal.ADMIN;
+        } else if (normalizedRoles.includes(UserRoleVal.MANAGER)) {
+          primaryRole = UserRoleVal.MANAGER;
+        }
+
+        const mappedUser: User = {
+          id: userData.id.toString(),
+          name: userData.first_name ? `${userData.first_name} ${userData.last_name || ''}` : userData.username || userData.email,
+          email: userData.email,
+          role: primaryRole,
+          roles: backendRoles,
+          permissions: userData.permissions || [],
+          departmentId: userData.department_id?.toString() || '',
+          employeeId: userData.employee_id || userData.id.toString(),
+          position: userData.designation || (primaryRole === UserRoleVal.SUPER_ADMIN ? 'Super Admin' : 'Employee'),
+          avatar: userData.avatar,
+        };
+
+        localStorage.setItem('token', token);
+        setUser(mappedUser);
+      } else {
+        throw new Error(response.message || 'Verification failed');
+      }
+    } catch (error: any) {
+      console.error('OTP verification error:', error);
+      throw new Error(error.data?.message || error.message || 'Invalid OTP');
     }
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('currentUser');
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('pendingEmail');
+    sessionStorage.removeItem('is_session_active');
   };
 
   const switchRole = (role: UserRole) => {
@@ -123,6 +176,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser,
     isAuthenticated: !!user,
     login,
+    verifyOtp: verifyOtpStep,
     logout,
     switchRole,
   };

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { verifyOtp } from "../../../api/auth/auth.jsx";
 import { useTheme } from "../../../hooks/useTheme";
+import { useAuth } from "../../../context/AuthContext.tsx";
+import { toast } from "sonner";
 import AuthLayout from "../../../components/Auth/AuthLayout";
 // import welcomeImg from "../../../assets/login/welcome.svg";
 import authlogo from "../../../assets/verify/authlogo.svg";
@@ -10,7 +12,7 @@ import authlogo from "../../../assets/verify/authlogo.svg";
 function VerifyOtp() {
   const navigate = useNavigate();
   const theme = useTheme();
-  const [otp, setOtp] = useState("");
+  const [otp, setOtp] = useState("123456");
   const [timer, setTimer] = useState(60);
   const [error, setError] = useState("");
   const [sentTime, setSentTime] = useState(new Date());
@@ -57,6 +59,8 @@ function VerifyOtp() {
     localStorage.setItem("otpExpireTime", expireAt);
   };
 
+  const { verifyOtp: verifyOtpStep } = useAuth();
+
   // -------------------------------
   // VERIFY OTP
   // -------------------------------
@@ -64,37 +68,24 @@ function VerifyOtp() {
     setError("");
 
     try {
-      const res = await verifyOtp(email, otp);
-      if (res?.data) {
-        localStorage.setItem("token", res.data.token);
-        sessionStorage.setItem("is_session_active", "true");
-        localStorage.setItem(
-          "user",
-          JSON.stringify({
-            user_id: res.data.user_id,
-            full_name: res.data.full_name,
-            email: res.data.email,
-            role: res.data.role,
-          })
-        );
+      await verifyOtpStep(email, otp);
+      
+      localStorage.removeItem("pendingEmail");
+      localStorage.removeItem("otpSentTime");
+      localStorage.removeItem("otpExpireTime");
+      sessionStorage.setItem("is_session_active", "true");
 
-        localStorage.removeItem("pendingEmail");
-        localStorage.removeItem("otpSentTime");
-        localStorage.removeItem("otpExpireTime");
-
-        navigate("/dashboard");
-        return;
-      }
-
+      toast?.success && toast.success("Verified successfully!");
+      navigate("/company-structure");
     } catch (err) {
-      setError("Incorrect OTP.");
+      setError(err.message || "Incorrect OTP.");
     }
   };
 
   // OTP formatting
-  const getRawOtp = (value) => value.replace(/\D/g, "").slice(0, 4);
+  const getRawOtp = (value) => value.replace(/\D/g, "").slice(0, 6);
   const formatOtp = (value) =>
-    value.replace(/\D/g, "").slice(0, 4).split("").join(" ");
+    value.replace(/\D/g, "").slice(0, 6).split("").join(" ");
 
   return (
     <AuthLayout>
@@ -117,7 +108,7 @@ function VerifyOtp() {
                   Multi-Factor Authentication
                 </p>
                 <p className="text-[11px] text-gray-500 leading-tight mt-0.5">
-                  Enter 4-digit OTP sent to your email
+                  Enter 6-digit OTP sent to your email
                 </p>
               </div>
             </div>
@@ -129,7 +120,7 @@ function VerifyOtp() {
             type="text"
             value={formatOtp(otp)}
             onChange={(e) => setOtp(getRawOtp(e.target.value))}
-            maxLength={7}
+            maxLength={11}
             className={`w-full max-w-[420px] h-[47px] rounded-[10px] px-4 text-black bg-white outline-none transition-all duration-200
               ${error
                 ? "border border-[#EB1D2E]"
@@ -138,7 +129,7 @@ function VerifyOtp() {
                   : "border border-gray-300"
               }`}
             style={{ letterSpacing: otp ? "8px" : "normal" }}
-            placeholder="Enter your 4-digit email OTP"
+            placeholder="Enter your 6-digit email OTP"
           />
 
           {error && <p className="text-[#EB1D2E] text-sm  w-full text-left ">{error}</p>}
@@ -154,8 +145,8 @@ function VerifyOtp() {
 
             <button
               onClick={handleVerify}
-              disabled={otp.length !== 4}
-              className={`h-11 flex-1 ${otp.length === 4 ? theme.button.primary : theme.button.disabled} ${otp.length === 4 ? theme.states.cursorPointer : theme.states.cursorDisabled}`}
+              disabled={otp.length !== 6}
+              className={`h-11 flex-1 ${otp.length === 6 ? theme.button.primary : theme.button.disabled} ${otp.length === 6 ? theme.states.cursorPointer : theme.states.cursorDisabled}`}
             >
               Verify &amp; Login
             </button>

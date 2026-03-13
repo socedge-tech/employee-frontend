@@ -23,7 +23,9 @@ const AuthLayout = ({ children }) => {
           input:-webkit-autofill:hover,
           input:-webkit-autofill:focus,
           input:-webkit-autofill:active {
-            -webkit-text-fill-color: #ffffff !important;
+            -webkit-text-fill-color: #000000 !important;
+            -webkit-box-shadow: 0 0 0 30px white inset !important;
+            box-shadow: 0 0 0 30px white inset !important;
           }
         }
       `}</style>

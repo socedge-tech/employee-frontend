@@ -1,7 +1,12 @@
-import { useState } from "react";
-import { useNavigate } from "react-router";
-import { ArrowLeft, Upload, Trash2, PlusCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, Upload, Trash2, PlusCircle, Loader2 } from "lucide-react";
 import { Button } from "../components/ui/button.tsx";
+import { getDepartments } from "../api/departments.ts";
+import { getEmployees, createEmployee, getEmployee, updateEmployee } from "../api/employees.ts";
+import { getRoles } from "../api/roles.ts";
+import type { Role } from "../api/roles.ts";
+import { toast } from "sonner";
 
 interface FamilyMember {
   name: string;
@@ -35,11 +40,11 @@ interface CompensationSplit {
 }
 
 export function AddEmployee() {
-  const navigate = useNavigate();
+  const { id } = useParams();
   const [activeSection, setActiveSection] = useState("job");
   
   const [formData, setFormData] = useState({
-    // Personal Information
+    // ... same as before
     firstName: "",
     lastName: "",
     middleName: "",
@@ -49,7 +54,6 @@ export function AddEmployee() {
     maritalStatus: "",
     bloodGroup: "",
     
-    // Primary Contact
     primaryEmail: "",
     primaryPhone: "",
     primaryAddress: "",
@@ -58,7 +62,6 @@ export function AddEmployee() {
     primaryZip: "",
     primaryCountry: "",
     
-    // Secondary Contact
     secondaryEmail: "",
     secondaryPhone: "",
     secondaryAddress: "",
@@ -67,13 +70,11 @@ export function AddEmployee() {
     secondaryZip: "",
     secondaryCountry: "",
     
-    // Emergency Contact
     emergencyContactName: "",
     emergencyContactRelationship: "",
     emergencyContactPhone: "",
     emergencyContactEmail: "",
     
-    // Job Details
     department: "",
     role: "",
     location: "",
@@ -84,12 +85,10 @@ export function AddEmployee() {
     manager: "",
     probationPeriod: "",
     
-    // Compensation
     baseSalary: "",
     currency: "USD",
     payFrequency: "Monthly",
     
-    // Documents
     passportNumber: "",
     passportExpiry: "",
     drivingLicense: "",
@@ -97,13 +96,11 @@ export function AddEmployee() {
     socialSecurityNumber: "",
     taxId: "",
     
-    // Bank Details
     bankName: "",
     accountNumber: "",
     routingNumber: "",
     accountHolderName: "",
     
-    // Skills
     skills: "",
     certifications: "",
     languages: ""
@@ -115,6 +112,107 @@ export function AddEmployee() {
   const [compensationSplits, setCompensationSplits] = useState<CompensationSplit[]>([
     { componentType: "Base Salary", amount: "", frequency: "Monthly" }
   ]);
+
+  const [departmentsList, setDepartmentsList] = useState<any[]>([]);
+  const [rolesList, setRolesList] = useState<Role[]>([]);
+  const [managersList, setManagersList] = useState<any[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFetchingEmployee, setIsFetchingEmployee] = useState(false);
+
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const [deps, emps, roles] = await Promise.all([
+          getDepartments(),
+          getEmployees(),
+          getRoles()
+        ]);
+        setDepartmentsList(deps);
+        setManagersList(emps);
+        setRolesList(roles);
+        
+        // If ID exists, fetch employee data
+        if (id) {
+          setIsFetchingEmployee(true);
+          const emp = await getEmployee(parseInt(id, 10));
+          const details = emp.details || {};
+          
+          setFormData({
+            firstName: details.first_name || "",
+            lastName: details.last_name || "",
+            middleName: details.middle_name || "",
+            dateOfBirth: details.date_of_birth ? details.date_of_birth.split('T')[0] : "",
+            gender: details.gender || "",
+            nationality: details.nationality || "",
+            maritalStatus: details.marital_status || "",
+            bloodGroup: details.blood_group || "",
+            
+            primaryEmail: emp.email || "",
+            primaryPhone: details.phone || "",
+            primaryAddress: details.address || "",
+            primaryCity: details.city || "",
+            primaryState: details.state || "",
+            primaryZip: details.zip || "",
+            primaryCountry: details.country || "",
+            
+            secondaryEmail: details.secondary_email || "",
+            secondaryPhone: details.secondary_phone || "",
+            secondaryAddress: details.secondary_address || "",
+            secondaryCity: details.secondary_city || "",
+            secondaryState: details.secondary_state || "",
+            secondaryZip: details.secondary_zip || "",
+            secondaryCountry: details.secondary_country || "",
+            
+            emergencyContactName: details.emergency_contact || "",
+            emergencyContactRelationship: details.emergency_relationship || "",
+            emergencyContactPhone: details.emergency_phone || "",
+            emergencyContactEmail: details.emergency_email || "",
+            
+            department: details.department_id?.toString() || "",
+            role: emp.roles?.[0]?.role_id?.toString() || "",
+            location: details.work_location || "",
+            startDate: details.start_date ? details.start_date.split('T')[0] : "",
+            employeeType: details.employment_type || "Full-time",
+            employeeId: details.employee_id || "",
+            workSchedule: details.work_schedule || "",
+            manager: details.reporting_manager_id?.toString() || "",
+            probationPeriod: details.probation_period?.toString() || "",
+            
+            baseSalary: details.base_salary?.toString() || "",
+            currency: details.currency || "USD",
+            payFrequency: details.salary_frequency || "Monthly",
+            
+            passportNumber: details.passport_number || "",
+            passportExpiry: details.passport_expiry_date ? details.passport_expiry_date.split('T')[0] : "",
+            drivingLicense: details.driving_license_number || "",
+            licenseExpiry: details.license_expiry_date ? details.license_expiry_date.split('T')[0] : "",
+            socialSecurityNumber: details.social_security_number || "",
+            taxId: details.tax_id_number || "",
+            
+            bankName: details.bank_name || "",
+            accountNumber: details.account_number || "",
+            routingNumber: details.routing_number || "",
+            accountHolderName: details.account_holder_name || "",
+            
+            skills: details.skills || "",
+            certifications: details.certificates || "",
+            languages: details.languages || ""
+          });
+          
+          if (details.family_members) setFamilyMembers(details.family_members);
+          if (details.education) setEducationHistory(details.education);
+          if (details.employment_history) setEmploymentHistory(details.employment_history);
+          if (details.compensation_breakdown) setCompensationSplits(details.compensation_breakdown);
+        }
+      } catch (error) {
+        console.error("Failed to load initial data", error);
+        toast.error("Failed to load departments and managers");
+      } finally {
+        setIsFetchingEmployee(false);
+      }
+    };
+    fetchInitialData();
+  }, [id]);
 
   const sections = [
     { id: "job", label: "Job Details" },
@@ -135,21 +233,100 @@ export function AddEmployee() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
     
-    const completeData = {
-      ...formData,
-      familyMembers,
-      educationHistory,
-      employmentHistory,
-      compensationSplits
+    // Check if required fields are provided
+    if (!formData.firstName || !formData.lastName || !formData.primaryEmail) {
+      toast.error("Please fill in all required fields (Name, Email)");
+      setIsSubmitting(false);
+      return;
+    }
+    
+    const completeData: any = {
+      // User Table Fields
+      email: formData.primaryEmail,
+      status: true,
+      
+      // UserDetail Table Fields
+      first_name: formData.firstName,
+      last_name: formData.lastName,
+      middle_name: formData.middleName,
+      date_of_birth: formData.dateOfBirth,
+      gender: formData.gender,
+      nationality: formData.nationality,
+      marital_status: formData.maritalStatus,
+      blood_group: formData.bloodGroup,
+      
+      phone: formData.primaryPhone,
+      secondary_phone: formData.secondaryPhone,
+      secondary_email: formData.secondaryEmail,
+      
+      address: formData.primaryAddress,
+      city: formData.primaryCity,
+      state: formData.primaryState,
+      zip: formData.primaryZip,
+      country: formData.primaryCountry,
+      
+      secondary_address: formData.secondaryAddress,
+      secondary_city: formData.secondaryCity,
+      secondary_state: formData.secondaryState,
+      secondary_zip: formData.secondaryZip,
+      secondary_country: formData.secondaryCountry,
+      
+      emergency_contact: formData.emergencyContactName,
+      emergency_relationship: formData.emergencyContactRelationship,
+      emergency_phone: formData.emergencyContactPhone,
+      emergency_email: formData.emergencyContactEmail,
+      
+      employee_id: formData.employeeId,
+      department_id: formData.department ? parseInt(formData.department, 10) : undefined,
+      job_role: rolesList.find(r => r.id.toString() === formData.role)?.role_name || formData.role,
+      role_id: formData.role ? parseInt(formData.role, 10) : undefined,
+      employment_type: formData.employeeType,
+      start_date: formData.startDate,
+      work_location: formData.location,
+      work_schedule: formData.workSchedule,
+      reporting_manager_id: formData.manager ? parseInt(formData.manager, 10) : undefined,
+      probation_period: formData.probationPeriod ? parseInt(formData.probationPeriod, 10) : undefined,
+      
+      base_salary: formData.baseSalary ? parseFloat(formData.baseSalary) : undefined,
+      currency: formData.currency,
+      salary_frequency: formData.payFrequency,
+      compensation_breakdown: compensationSplits,
+      
+      passport_number: formData.passportNumber,
+      passport_expiry_date: formData.passportExpiry,
+      driving_license_number: formData.drivingLicense,
+      license_expiry_date: formData.licenseExpiry,
+      social_security_number: formData.socialSecurityNumber,
+      tax_id_number: formData.taxId,
+      
+      bank_name: formData.bankName,
+      account_holder_name: formData.accountHolderName,
+      account_number: formData.accountNumber,
+      routing_number: formData.routingNumber,
+      
+      skills: formData.skills,
+      certificates: formData.certifications,
+      languages: formData.languages,
+      
+      family_members: familyMembers,
+      education_history: educationHistory,
+      employment_history: employmentHistory,
     };
-    console.log("Complete Employee Data:", completeData);
     
-    // Show success message and navigate back
-    alert("Employee added successfully!");
-    navigate("/employee-management");
+    try {
+      await createEmployee(completeData);
+      toast.success("Employee added successfully!");
+      navigate("/employee-management");
+    } catch (error) {
+      console.error("Failed to add employee", error);
+      toast.error("Failed to add employee");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Family Members
@@ -704,27 +881,27 @@ export function AddEmployee() {
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         >
                           <option value="">Select Department</option>
-                          <option value="Engineering">Engineering</option>
-                          <option value="Sales">Sales</option>
-                          <option value="Marketing">Marketing</option>
-                          <option value="HR">HR</option>
-                          <option value="Finance">Finance</option>
-                          <option value="Operations">Operations</option>
+                          {departmentsList.map((dep) => (
+                            <option key={dep.id} value={dep.id}>{dep.department_name}</option>
+                          ))}
                         </select>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Job Title/Role <span className="text-red-500">*</span>
+                          System Role <span className="text-red-500">*</span>
                         </label>
-                        <input
-                          type="text"
+                        <select
                           name="role"
                           value={formData.role}
                           onChange={handleInputChange}
                           required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          placeholder="Senior Developer"
-                        />
+                        >
+                          <option value="">Select Role</option>
+                          {rolesList.map((role) => (
+                            <option key={role.id} value={role.id}>{role.role_name}</option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -805,10 +982,9 @@ export function AddEmployee() {
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         >
                           <option value="">Select Manager</option>
-                          <option value="Sarah Johnson">Sarah Johnson</option>
-                          <option value="Robert Taylor">Robert Taylor</option>
-                          <option value="Jennifer Martinez">Jennifer Martinez</option>
-                          <option value="Patricia Moore">Patricia Moore</option>
+                          {managersList.map(mgr => (
+                            <option key={mgr.id} value={mgr.id}>{mgr.firstName} {mgr.lastName}</option>
+                          ))}
                         </select>
                       </div>
                       <div>
@@ -1475,7 +1651,8 @@ export function AddEmployee() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={isSubmitting} className="gap-2">
+                  {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
                   Add Employee
                 </Button>
               </div>

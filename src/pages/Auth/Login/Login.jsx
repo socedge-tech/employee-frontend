@@ -5,6 +5,7 @@ import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 import { useTheme } from "../../../hooks/useTheme";
 import { useAuth } from "../../../context/AuthContext.tsx";
 import AuthLayout from "../../../components/Auth/AuthLayout";
+import { toast } from "sonner";
 
 
 function Login() {
@@ -17,7 +18,6 @@ function Login() {
   const [status, setStatus] = useState({ type: "", message: "" });
   const [errors, setErrors] = useState({ email: "", password: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [confirmModal, setConfirmModal] = useState({ open: false });
 
   // Load saved email on page load
   useEffect(() => {
@@ -29,13 +29,7 @@ function Login() {
 
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get("expired") === "true") {
-      setConfirmModal({
-        open: true,
-        actionType: "authError",
-        title: "Session Expired",
-        message: "Session logged out so please login again...",
-        confirmText: "Login Now",
-      });
+      toast.error("Session expired. Please login again.");
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
@@ -100,15 +94,12 @@ function Login() {
       await login(formData.email, formData.password);
       
       handleRememberLogic();
-      navigate("/");
+      localStorage.setItem("pendingEmail", formData.email);
+      toast.success("OTP sent to your email!");
+      navigate("/verify-login");
     } catch (error) {
-      setConfirmModal({
-        open: true,
-        actionType: "authError",
-        title: "Login Failed",
-        message: error.message || "Invalid credentials",
-        confirmText: "Try Again",
-      });
+      console.error("Login failed:", error);
+      toast.error(error.message || "Invalid credentials");
     }
     setIsSubmitting(false);
   };
