@@ -40,6 +40,7 @@ interface CompensationSplit {
 }
 
 export function AddEmployee() {
+  const navigate = useNavigate();
   const { id } = useParams();
   const [activeSection, setActiveSection] = useState("job");
   
@@ -318,12 +319,17 @@ export function AddEmployee() {
     };
     
     try {
-      await createEmployee(completeData);
-      toast.success("Employee added successfully!");
+      if (id) {
+        await updateEmployee(parseInt(id, 10), completeData);
+        toast.success("Employee updated successfully!");
+      } else {
+        await createEmployee(completeData);
+        toast.success("Employee added successfully!");
+      }
       navigate("/employee-management");
     } catch (error) {
-      console.error("Failed to add employee", error);
-      toast.error("Failed to add employee");
+      console.error("Failed to save employee", error);
+      toast.error("Failed to save employee");
     } finally {
       setIsSubmitting(false);
     }

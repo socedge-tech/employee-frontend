@@ -43,7 +43,7 @@ export const createDepartment = async (data: Partial<Department>): Promise<Depar
 };
 
 export const updateDepartment = async (id: number, data: Partial<Department>): Promise<Department> => {
-  const response = await apiFetch(`/department/${id}`, {
+  const response = await apiFetch(`/departments/${id}`, {
     method: "PUT",
     body: JSON.stringify(data),
   });
