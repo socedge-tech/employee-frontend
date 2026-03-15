@@ -1,14 +1,18 @@
-import { apiFetch } from "./config";
+import axiosInstance from "./axiosInstance";
 
 export interface Branch {
   id: number;
   organization_id: number;
-  branch_name: string;
-  branch_code: string;
-  address: string;
+  location_name?: string;
+  location_code?: string;
+  street_address?: string;
+  branch_name?: string; // Compatibility
+  branch_code?: string; // Compatibility
+  address?: string; // Compatibility
   city: string;
   state: string;
-  zip: string;
+  zip_code?: string;
+  zip?: string; // Compatibility
   country: string;
   time_zone?: string;
   tax_location?: string;
@@ -20,11 +24,13 @@ export interface Branch {
 export interface Organization {
   id: number;
   entity_name: string;
+  legal_entity_name?: string; // Corrected column name per user request
   company_code: string;
   company_type?: string;
   jurisdiction?: string;
   currency?: string;
   fiscal_year_end?: string;
+  tax_registration_number?: string; // Corrected column name per user request
   pan?: string;
   tin?: string;
   sin?: string;
@@ -32,11 +38,13 @@ export interface Organization {
   siret?: string;
   other_tax_id?: string;
   address?: string;
+  legal_address?: string; // Corrected column name per user request
   city?: string;
   state?: string;
   country?: string;
   zip?: string;
   business_unit?: string;
+  division?: string;
   cost_center?: string;
   job_architecture?: boolean;
   payroll_statutory_unit?: string;
@@ -49,31 +57,40 @@ export interface Organization {
   created_at: string;
   updated_at: string;
   branches?: Branch[];
+  branch?: Branch[];
 }
 
 export const getOrganizations = async (): Promise<Organization[]> => {
-  const response = await apiFetch("/organizations");
-  const json = await response.json();
-  if (!json.success) throw new Error(json.message);
-  return json.data;
+  try {
+    const response = await axiosInstance.get("/organizations");
+    return response.data.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to fetch organizations" };
+  }
 };
 
 export const createOrganization = async (data: any): Promise<Organization> => {
-  const response = await apiFetch("/organizations", {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-  const json = await response.json();
-  if (!json.success) throw new Error(json.message);
-  return json.data;
+  try {
+    const response = await axiosInstance.post("/organizations", data);
+    return response.data.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to create organization" };
+  }
 };
 
 export const updateOrganization = async (id: number, data: any): Promise<Organization> => {
-  const response = await apiFetch(`/organizations/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(data),
-  });
-  const json = await response.json();
-  if (!json.success) throw new Error(json.message);
-  return json.data;
+  try {
+    const response = await axiosInstance.put(`/organizations/${id}`, data);
+    return response.data.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to update organization" };
+  }
 };
+
+export const deleteOrganization = async (id: number): Promise<void> => {
+    try {
+      await axiosInstance.delete(`/organizations/${id}`);
+    } catch (error: any) {
+      throw error.response?.data || { message: "Failed to delete organization" };
+    }
+  };

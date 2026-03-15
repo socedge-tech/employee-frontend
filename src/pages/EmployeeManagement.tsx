@@ -1,267 +1,101 @@
-import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router";
-import { Search, Filter, Download, Upload, Eye, Edit, Trash2, Plus, X, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
-import { Card, CardContent } from "../components/ui/card.tsx";
-import { Button } from "../components/ui/button.tsx";
+import { useNavigate } from "react-router-dom";
+import {
+  Search, Filter, Download, Upload, Eye, Edit, Trash2,
+  Plus, X, ChevronLeft, ChevronRight, Loader2,
+} from "lucide-react";
+import { Card, CardContent } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { RoleGate } from "../components/Auth/RoleGate";
+import { Permission } from "../types/rbac";
+import { usePermissions } from "../hooks/usePermissions";
+import { useEmployees } from "../hooks/useEmployees";
 
-import { getEmployees, deleteEmployee } from "../api/employees.ts";
-import { toast } from "sonner";
-
-interface Employee {
-  id: string;
-  name: string;
-  email: string;
-  department: string;
-  role: string;
-  location: string;
-  status: "Active" | "Inactive" | "On Leave";
-  lastActive: string;
-  avatar: string;
-}
-
-interface Filters {
-  departments: string[];
-  roles: string[];
-  locations: string[];
-  statuses: string[];
-}
-
+// ─────────────────────────────────────────────────────────────────────────────
+// Employee Management Page
+// ─────────────────────────────────────────────────────────────────────────────
 export function EmployeeManagement() {
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
-  const [showFilters, setShowFilters] = useState(false);
-  const [hoveredRow, setHoveredRow] = useState<string | null>(null);
   const navigate = useNavigate();
-  const filterRef = useRef<HTMLDivElement>(null);
+  const { can } = usePermissions();
+  const canEdit = can(Permission.EDIT_EMPLOYEE);
+  const canDelete = can(Permission.DELETE_EMPLOYEE);
 
-  // Pagination states
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const {
+    paginatedEmployees,
+    isLoading,
+    isDeleting,
 
-  // Filter states
-  const [filters, setFilters] = useState<Filters>({
-    departments: [],
-    roles: [],
-    locations: [],
-    statuses: [],
-  });
+    searchTerm, setSearchTerm,
+    filters, toggleFilter, clearFilters,
+    filterOptions, hasActiveFilters,
+    showFilters, setShowFilters, filterRef,
 
-  const fetchEmployees = async () => {
-    try {
-      setIsLoading(true);
-      const data = await getEmployees();
-      const mapped: Employee[] = data.map((emp: any) => ({
-        id: emp.id.toString(),
-        name: `${emp.details?.first_name || ""} ${emp.details?.last_name || ""}`.trim() || emp.username || "Unknown",
-        email: emp.email,
-        department: emp.details?.department?.department_name || "Unassigned",
-        role: emp.details?.job_role || "Employee",
-        location: emp.details?.work_location || "Office",
-        status: (emp.status === true || emp.status === "active" ? "Active" : "Inactive") as Employee["status"],
-        lastActive: emp.created_at ? new Date(emp.created_at).toLocaleDateString() : "Recently",
-        avatar: `${emp.details?.first_name?.[0] || ""}${emp.details?.last_name?.[0] || ""}`.toUpperCase() || emp.username?.[0]?.toUpperCase() || "U",
-      }));
-      setEmployees(mapped);
-    } catch (error) {
-      console.error("Failed to fetch employees", error);
-      toast.error("Failed to load employees");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchEmployees();
-  }, []);
-
-  // Get unique values for filter options
-  const uniqueDepartments = Array.from(new Set(employees.map(e => e.department)));
-  const uniqueRoles = Array.from(new Set(employees.map(e => e.role)));
-  const uniqueLocations = Array.from(new Set(employees.map(e => e.location)));
-  const uniqueStatuses: Employee["status"][] = ["Active", "Inactive", "On Leave"];
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
-        setShowFilters(false);
-      }
-    };
-
-    if (showFilters) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [showFilters]);
-
-  const toggleFilter = (filterType: keyof Filters, value: string) => {
-    setFilters(prev => ({
-      ...prev,
-      [filterType]: prev[filterType].includes(value)
-        ? prev[filterType].filter(v => v !== value)
-        : [...prev[filterType], value]
-    }));
-  };
-
-  const clearFilters = () => {
-    setFilters({
-      departments: [],
-      roles: [],
-      locations: [],
-      statuses: [],
-    });
-  };
-
-  const hasActiveFilters = 
-    filters.departments.length > 0 || 
-    filters.roles.length > 0 || 
-    filters.locations.length > 0 || 
-    filters.statuses.length > 0;
-
-  const toggleSelectAll = () => {
-    if (selectedEmployees.length === employees.length) {
-      setSelectedEmployees([]);
-    } else {
-      setSelectedEmployees(employees.map(e => e.id));
-    }
-  };
-
-  const toggleSelectEmployee = (id: string) => {
-    if (selectedEmployees.includes(id)) {
-      setSelectedEmployees(selectedEmployees.filter(e => e !== id));
-    } else {
-      setSelectedEmployees([...selectedEmployees, id]);
-    }
-  };
-
-  const getStatusColor = (status: Employee["status"]) => {
-    switch (status) {
-      case "Active": return "bg-green-100 text-green-700";
-      case "Inactive": return "bg-gray-100 text-gray-700";
-      case "On Leave": return "bg-amber-100 text-amber-700";
-    }
-  };
-
-  // Calculate filtered employees
-  const filteredEmployees = employees
-    .filter(emp => 
-      emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      emp.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      emp.department.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    .filter(emp => 
-      (!filters.departments.length || filters.departments.includes(emp.department)) &&
-      (!filters.roles.length || filters.roles.includes(emp.role)) &&
-      (!filters.locations.length || filters.locations.includes(emp.location)) &&
-      (!filters.statuses.length || filters.statuses.includes(emp.status))
-    );
-
-  // Pagination calculations
-  const totalItems = filteredEmployees.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage + 1;
-  const endIndex = Math.min(currentPage * itemsPerPage, totalItems);
-  const paginatedEmployees = filteredEmployees.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  // Reset to first page when filters or search change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, filters]);
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
-
-  const handleItemsPerPageChange = (value: number) => {
-    setItemsPerPage(value);
-    setCurrentPage(1);
-  };
-
-  // Generate page numbers to display
-  const getPageNumbers = () => {
-    const pages = [];
-    const maxPagesToShow = 5;
-    
-    if (totalPages <= maxPagesToShow) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      if (currentPage <= 3) {
-        for (let i = 1; i <= 4; i++) {
-          pages.push(i);
-        }
-        pages.push('...');
-        pages.push(totalPages);
-      } else if (currentPage >= totalPages - 2) {
-        pages.push(1);
-        pages.push('...');
-        for (let i = totalPages - 3; i <= totalPages; i++) {
-          pages.push(i);
-        }
-      } else {
-        pages.push(1);
-        pages.push('...');
-        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
-          pages.push(i);
-        }
-        pages.push('...');
-        pages.push(totalPages);
-      }
-    }
-    
-    return pages;
-  };
+    selectedIds, isAllSelected, toggleSelectAll, toggleSelectEmployee,
+    paginationInfo, getPageNumbers, setCurrentPage, setPageSize,
+    hoveredId, setHoveredId,
+    handleDelete,
+  } = useEmployees();
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
       </div>
     );
   }
 
+  const { total, start, end, currentPage, totalPages, pageSize } = paginationInfo;
+  const pageNumbers = getPageNumbers();
+
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* ── Page Header ────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-semibold text-gray-900">Employee Management</h1>
           <p className="text-gray-500 mt-1">Manage and organize your workforce</p>
         </div>
-        <Button onClick={() => navigate("/employee-management/add-employee")} className="gap-2">
-          <Plus className="w-4 h-4" />
-          Add Employee
-        </Button>
+        <RoleGate permissions={[Permission.ADD_EMPLOYEE]}>
+          <Button onClick={() => navigate("/employee-management/add-employee")} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Add Employee
+          </Button>
+        </RoleGate>
       </div>
 
-      {/* Filters and Actions */}
+      {/* ── Toolbar ─────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        {/* Search */}
         <div className="flex-1 max-w-md">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search employees..."
+              placeholder="Search employees…"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              onChange={e => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-lg
+                         focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
             />
           </div>
         </div>
-        <div className="flex gap-2 relative">
-          <div className="relative" ref={filterRef}>
-            <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)} className="gap-2">
+
+        {/* Actions */}
+        <div className="flex gap-2 relative" ref={filterRef}>
+          {/* Filter dropdown */}
+          <div className="relative">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(v => !v)}
+              className="gap-2"
+            >
               <Filter className="w-4 h-4" />
               Filters
+              {hasActiveFilters && (
+                <span className="ml-1 w-2 h-2 rounded-full bg-indigo-500 inline-block" />
+              )}
             </Button>
-            
-            {/* Filter Dropdown Modal */}
+
             {showFilters && (
               <div className="absolute right-0 top-full mt-2 w-[800px] bg-white rounded-lg shadow-xl border border-gray-200 z-50">
                 <div className="p-6">
@@ -270,95 +104,50 @@ export function EmployeeManagement() {
                     <div className="flex items-center gap-2">
                       {hasActiveFilters && (
                         <Button size="sm" variant="outline" onClick={clearFilters}>
-                          Clear All
+                          Clear all
                         </Button>
                       )}
-                      <button 
-                        className="p-1.5 hover:bg-gray-200 rounded transition-colors" 
+                      <button
+                        className="p-1.5 hover:bg-gray-200 rounded transition-colors"
                         onClick={() => setShowFilters(false)}
                       >
                         <X className="w-4 h-4 text-gray-600" />
                       </button>
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-4 gap-6">
-                    {/* Department Filter */}
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-700 mb-3">Department</h3>
-                      <div className="space-y-2">
-                        {uniqueDepartments.map(dept => (
-                          <label key={dept} className="flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded">
-                            <input
-                              type="checkbox"
-                              checked={filters.departments.includes(dept)}
-                              onChange={() => toggleFilter("departments", dept)}
-                              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                            />
-                            <span className="ml-2 text-sm text-gray-900">{dept}</span>
-                          </label>
-                        ))}
+                    {(
+                      [
+                        { key: "departments", label: "Department", options: filterOptions.departments },
+                        { key: "roles",       label: "Role",       options: filterOptions.roles },
+                        { key: "locations",   label: "Location",   options: filterOptions.locations },
+                        { key: "statuses",    label: "Status",     options: filterOptions.statuses },
+                      ] as const
+                    ).map(col => (
+                      <div key={col.key}>
+                        <h3 className="text-sm font-medium text-gray-700 mb-3">{col.label}</h3>
+                        <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2">
+                          {col.options.map(opt => (
+                            <label key={opt} className="flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded">
+                              <input
+                                type="checkbox"
+                                checked={filters[col.key].includes(opt)}
+                                onChange={() => toggleFilter(col.key, opt)}
+                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                              />
+                              <span className="ml-2 text-sm text-gray-900">{opt}</span>
+                            </label>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-
-                    {/* Role Filter */}
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-700 mb-3">Role</h3>
-                      <div className="space-y-2">
-                        {uniqueRoles.map(role => (
-                          <label key={role} className="flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded">
-                            <input
-                              type="checkbox"
-                              checked={filters.roles.includes(role)}
-                              onChange={() => toggleFilter("roles", role)}
-                              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                            />
-                            <span className="ml-2 text-sm text-gray-900">{role}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Location Filter */}
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-700 mb-3">Location</h3>
-                      <div className="space-y-2">
-                        {uniqueLocations.map(loc => (
-                          <label key={loc} className="flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded">
-                            <input
-                              type="checkbox"
-                              checked={filters.locations.includes(loc)}
-                              onChange={() => toggleFilter("locations", loc)}
-                              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                            />
-                            <span className="ml-2 text-sm text-gray-900">{loc}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Status Filter */}
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-700 mb-3">Status</h3>
-                      <div className="space-y-2">
-                        {uniqueStatuses.map(status => (
-                          <label key={status} className="flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded">
-                            <input
-                              type="checkbox"
-                              checked={filters.statuses.includes(status)}
-                              onChange={() => toggleFilter("statuses", status)}
-                              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                            />
-                            <span className="ml-2 text-sm text-gray-900">{status}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
               </div>
             )}
           </div>
+
           <Button variant="outline" size="sm" className="gap-2">
             <Upload className="w-4 h-4" />
             Import CSV
@@ -370,215 +159,253 @@ export function EmployeeManagement() {
         </div>
       </div>
 
-      {/* Bulk Actions Bar */}
-      {selectedEmployees.length > 0 && (
+      {/* ── Bulk Actions Bar ─────────────────────────────────────── */}
+      {selectedIds.size > 0 && (
         <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 flex items-center justify-between">
           <span className="text-sm font-medium text-indigo-900">
-            {selectedEmployees.length} employee{selectedEmployees.length > 1 ? 's' : ''} selected
+            {selectedIds.size} employee{selectedIds.size > 1 ? "s" : ""} selected
           </span>
           <div className="flex gap-2">
-            <Button size="sm" variant="outline">Update Roles</Button>
+            <RoleGate permissions={[Permission.EDIT_EMPLOYEE]}>
+              <Button size="sm" variant="outline">Update Roles</Button>
+            </RoleGate>
             <Button size="sm" variant="outline">Export Selected</Button>
-            <Button size="sm" variant="outline" className="text-red-600">Deactivate</Button>
+            <RoleGate permissions={[Permission.DELETE_EMPLOYEE]}>
+              <Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50 hover:text-red-700">
+                Deactivate
+              </Button>
+            </RoleGate>
           </div>
         </div>
       )}
 
-      {/* Employee Table */}
-      <Card>
+      {/* ── Employee Table ───────────────────────────────────────── */}
+      <Card className="rounded-lg shadow-sm border border-gray-200">
         <CardContent className="p-0">
-          <div className="overflow-hidden">
-            <table className="w-full table-fixed">
+          <div className="overflow-x-auto">
+            <table className="w-full table-fixed border-collapse">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="pl-2 pr-3 py-2 text-left w-12">
-                    {(selectedEmployees.length > 0 || hoveredRow !== null) && (
+                  <th className="pl-4 pr-3 py-3 text-left w-12">
+                    {(selectedIds.size > 0 || hoveredId !== null) && (
                       <input
                         type="checkbox"
-                        checked={selectedEmployees.length === employees.length && employees.length > 0}
+                        checked={isAllSelected}
                         onChange={toggleSelectAll}
                         className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                       />
                     )}
                   </th>
-                  <th className="pl-3 pr-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '280px' }}>
-                    Employee
-                  </th>
-                  <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '140px' }}>
-                    Department
-                  </th>
-                  <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '180px' }}>
-                    Role
-                  </th>
-                  <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '140px' }}>
-                    Location
-                  </th>
-                  <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '110px' }}>
-                    Status
-                  </th>
-                  <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Last Active
-                  </th>
+                  {[
+                    { label: "Employee",    width: "280px" },
+                    { label: "Department",  width: "140px" },
+                    { label: "Role",        width: "180px" },
+                    { label: "Location",    width: "140px" },
+                    { label: "Status",      width: "110px" },
+                    { label: "Last Active", width: undefined },
+                  ].map(col => (
+                    <th
+                      key={col.label}
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      style={col.width ? { width: col.width } : undefined}
+                    >
+                      {col.label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
+
               <tbody className="bg-white divide-y divide-gray-200">
-                {paginatedEmployees.map((employee) => {
-                    const isHovered = hoveredRow === employee.id;
-                    const isSelected = selectedEmployees.includes(employee.id);
-                    const hasSelections = selectedEmployees.length > 0;
+                {paginatedEmployees.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                      No employees found matching your search.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedEmployees.map(employee => {
+                    const isHovered = hoveredId === employee.id;
+                    const isSelected = selectedIds.has(employee.id);
+                    const hasSelections = selectedIds.size > 0;
                     const showCheckbox = isHovered || isSelected || hasSelections;
                     const showActions = isHovered && !hasSelections;
-                    
+                    const { details } = employee;
+
                     return (
-                      <tr 
-                        key={employee.id} 
-                        className="hover:bg-gray-50 transition-colors group cursor-pointer" 
-                        onMouseEnter={() => setHoveredRow(employee.id)} 
-                        onMouseLeave={() => setHoveredRow(null)}
-                        onClick={() => navigate(`/employee-management/employee/${employee.id}`)}
+                      <tr
+                        key={employee.id}
+                        className={`hover:bg-gray-50 transition-colors cursor-pointer ${isSelected ? "bg-indigo-50/30" : ""}`}
+                        onMouseEnter={() => setHoveredId(employee.id)}
+                        onMouseLeave={() => setHoveredId(null)}
+                        onClick={() => navigate(`/employee-management/view-employee/${employee.id}`)}
                       >
-                        <td className="pl-2 pr-3 py-2">
-                          <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
-                            {showCheckbox ? (
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => toggleSelectEmployee(employee.id)}
-                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                              />
-                            ) : (
-                              <div className="w-4 h-4"></div>
-                            )}
-                          </div>
+                        {/* Checkbox */}
+                        <td className="pl-4 pr-3 py-3" onClick={e => e.stopPropagation()}>
+                          {showCheckbox ? (
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleSelectEmployee(employee.id)}
+                              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                          ) : (
+                            <div className="w-4 h-4" />
+                          )}
                         </td>
-                        <td className="pl-3 pr-6 py-2">
+
+                        {/* Employee name + email */}
+                        <td className="pl-3 pr-6 py-3">
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
-                              {employee.avatar}
+                            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
+                              {details?.first_name?.[0]}{details?.last_name?.[0]}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="font-medium text-gray-900 truncate text-sm">{employee.name}</p>
+                              <p className="font-medium text-gray-900 truncate text-sm">
+                                {details?.first_name} {details?.last_name}
+                              </p>
                               <p className="text-xs text-gray-500 truncate">{employee.email}</p>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-2">
-                          <span className="text-sm text-gray-900 truncate block">{employee.department}</span>
-                        </td>
-                        <td className="px-6 py-2">
-                          <span className="text-sm text-gray-900 truncate block">{employee.role}</span>
-                        </td>
-                        <td className="px-6 py-2">
-                          <span className="text-sm text-gray-900 truncate block">{employee.location}</span>
-                        </td>
-                        <td className="px-6 py-2">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getStatusColor(employee.status)}`}>
-                            {employee.status}
+
+                        <td className="px-6 py-3">
+                          <span className="text-sm text-gray-700 truncate block">
+                            {details?.department?.department_name ?? "Unassigned"}
                           </span>
                         </td>
-                        <td className="px-6 py-2 relative">
+                        <td className="px-6 py-3">
+                          <span className="text-sm text-gray-700 truncate block">
+                            {details?.job_role ?? "Associate"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-3">
+                          <span className="text-sm text-gray-700 truncate block">
+                            {details?.work_location ?? "Remote"}
+                          </span>
+                        </td>
+
+                        {/* Status badge */}
+                        <td className="px-6 py-3">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
+                            employee.status ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
+                          }`}>
+                            {employee.status ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+
+                        {/* Last active + hover actions */}
+                        <td className="px-6 py-3 relative">
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-gray-500">
-                              {employee.lastActive}
+                              {employee.created_at
+                                ? new Date(employee.created_at).toLocaleDateString()
+                                : "Just now"}
                             </span>
+
                             {showActions && (
-                              <div className="flex items-center gap-1 ml-4" onClick={(e) => e.stopPropagation()}>
-                                <button 
-                                  className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                              <div className="flex items-center gap-1 ml-4" onClick={e => e.stopPropagation()}>
+                                <button
+                                  className="p-1.5 hover:bg-gray-200 rounded-md transition-colors"
                                   title="View"
-                                  onClick={() => navigate(`/employee-management/employee/${employee.id}`)}
+                                  onClick={() => navigate(`/employee-management/view-employee/${employee.id}`)}
                                 >
                                   <Eye className="w-4 h-4 text-gray-600" />
                                 </button>
-                                <button 
-                                  className="p-1.5 hover:bg-gray-200 rounded transition-colors"
-                                  title="Edit"
-                                  onClick={() => navigate(`/employee-management/edit-employee/${employee.id}`)}
-                                >
-                                  <Edit className="w-4 h-4 text-gray-600" />
-                                </button>
-                                <button 
-                                  className="p-1.5 hover:bg-red-100 rounded transition-colors"
-                                  title="Delete"
-                                  onClick={async () => {
-                                    if (window.confirm("Are you sure you want to delete this employee?")) {
-                                      try {
-                                        await deleteEmployee(parseInt(employee.id, 10));
-                                        toast.success("Employee deleted successfully");
-                                        fetchEmployees();
-                                      } catch (error) {
-                                        toast.error("Failed to delete employee");
-                                      }
-                                    }
-                                  }}
-                                >
-                                  <Trash2 className="w-4 h-4 text-red-600" />
-                                </button>
+                                {canEdit && (
+                                  <button
+                                    className="p-1.5 hover:bg-gray-200 rounded-md transition-colors"
+                                    title="Edit"
+                                    onClick={() => navigate(`/employee-management/edit-employee/${employee.id}`)}
+                                  >
+                                    <Edit className="w-4 h-4 text-gray-600" />
+                                  </button>
+                                )}
+                                {canDelete && (
+                                  <button
+                                    className="p-1.5 hover:bg-red-50 rounded-md transition-colors group/del"
+                                    title="Delete"
+                                    disabled={isDeleting}
+                                    onClick={() => handleDelete(employee.id)}
+                                  >
+                                    <Trash2 className="w-4 h-4 text-gray-400 group-hover/del:text-red-600" />
+                                  </button>
+                                )}
                               </div>
                             )}
                           </div>
                         </td>
                       </tr>
                     );
-                  })}
+                  })
+                )}
               </tbody>
             </table>
           </div>
         </CardContent>
       </Card>
 
-      {/* Pagination */}
-      {totalItems > 0 && (
-        <div className="flex items-center justify-between mt-4 px-6 py-4 border-t border-gray-200">
-          <div className="flex items-center gap-4">
+      {/* ── Pagination ───────────────────────────────────────────── */}
+      {total > 0 && (
+        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-white rounded-lg border">
+          {/* Count + rows per page */}
+          <div className="flex items-center gap-6">
             <p className="text-sm text-gray-500">
-              Showing {totalItems > 0 ? startIndex : 0} to {endIndex} of {totalItems} employees
+              Showing{" "}
+              <span className="font-medium text-gray-900">{start}</span>
+              {" "}to{" "}
+              <span className="font-medium text-gray-900">{end}</span>
+              {" "}of{" "}
+              <span className="font-medium text-gray-900">{total}</span>
+              {" "}employees
             </p>
             <div className="flex items-center gap-2">
               <label className="text-sm text-gray-500">Rows per page:</label>
               <select
-                value={itemsPerPage}
-                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-                className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value={pageSize}
+                onChange={e => setPageSize(Number(e.target.value))}
+                className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
               >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
+                {[5, 10, 20, 50].map(n => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
               </select>
             </div>
           </div>
-          
+
+          {/* Page buttons */}
           {totalPages > 1 && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <button
-                className="p-1.5 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => handlePageChange(currentPage - 1)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                onClick={() => setCurrentPage(currentPage - 1)}
                 disabled={currentPage === 1}
               >
                 <ChevronLeft className="w-4 h-4 text-gray-600" />
               </button>
-              {getPageNumbers().map((page, index) => (
-                typeof page === 'number' ? (
-                  <button
-                    key={index}
-                    className={`px-3 py-1.5 min-w-[36px] rounded transition-colors text-sm ${
-                      currentPage === page 
-                        ? 'bg-indigo-600 text-white' 
-                        : 'hover:bg-gray-100 text-gray-700'
-                    }`}
-                    onClick={() => handlePageChange(page)}
-                  >
-                    {page}
-                  </button>
-                ) : (
-                  <span key={index} className="px-2 text-gray-400">...</span>
-                )
-              ))}
+
+              <div className="flex items-center gap-1 mx-2">
+                {pageNumbers.map((page, idx) =>
+                  typeof page === "number" ? (
+                    <button
+                      key={idx}
+                      className={`px-3.5 py-1.5 min-w-[36px] rounded-lg transition-colors text-sm font-medium ${
+                        currentPage === page
+                          ? "bg-indigo-600 text-white shadow-sm"
+                          : "hover:bg-gray-100 text-gray-600 border border-transparent hover:border-gray-200"
+                      }`}
+                      onClick={() => setCurrentPage(page)}
+                    >
+                      {page}
+                    </button>
+                  ) : (
+                    <span key={idx} className="px-2 text-gray-400">…</span>
+                  )
+                )}
+              </div>
+
               <button
-                className="p-1.5 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => handlePageChange(currentPage + 1)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                onClick={() => setCurrentPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
               >
                 <ChevronRight className="w-4 h-4 text-gray-600" />
@@ -590,4 +417,3 @@ export function EmployeeManagement() {
     </div>
   );
 }
-

@@ -7,6 +7,9 @@ import { getEmployees, createEmployee, getEmployee, updateEmployee } from "../ap
 import { getRoles } from "../api/roles.ts";
 import type { Role } from "../api/roles.ts";
 import { toast } from "sonner";
+import { RoleGate } from "../components/Auth/RoleGate";
+import { Permission } from "../types/rbac";
+import { usePermissions } from "../hooks/usePermissions";
 
 interface FamilyMember {
   name: string;
@@ -402,9 +405,10 @@ export function AddEmployee() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+    <RoleGate permissions={[Permission.ADD_EMPLOYEE, Permission.EDIT_EMPLOYEE]}>
+      <div className="-m-8 flex flex-col bg-gray-50" style={{ height: 'calc(100vh - 64px)' }}>
+      {/* Sticky Header */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0 shadow-sm">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <div className="flex items-center gap-4">
             <Button
@@ -417,18 +421,22 @@ export function AddEmployee() {
               Back
             </Button>
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Add New Employee</h1>
-              <p className="text-sm text-gray-500 mt-1">Complete comprehensive employee onboarding</p>
+              <h1 className="text-2xl font-semibold text-gray-900">{id ? "Edit Employee" : "Add New Employee"}</h1>
+              <p className="text-sm text-gray-500 mt-1">
+                {id ? "Update employee information and records" : "Complete comprehensive employee onboarding"}
+              </p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="flex gap-6">
+      {/* Scrollable Body */}
+      <div className="flex-1 overflow-y-auto scroll-smooth">
+        <div className="max-w-7xl mx-auto p-6 pb-8">
+        <div className="flex gap-6 items-start">
           {/* Side Navigation */}
           <div className="w-56 flex-shrink-0">
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-white rounded-lg border border-gray-200 p-4 sticky top-6">
               <nav className="space-y-1">
                 {sections.map((section) => (
                   <button
@@ -449,13 +457,13 @@ export function AddEmployee() {
 
           {/* Form Content */}
           <div className="flex-1">
-            <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-gray-200">
-              <div className="p-6 space-y-6">
+            <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-gray-200 flex flex-col">
+              <div className="p-8 flex-1">
                 {/* Personal Information Section */}
                 {activeSection === "personal" && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="animate-in fade-in slide-in-from-left-2 duration-300 space-y-6">
+                    <h3 className="text-xl font-bold text-gray-900 border-b border-gray-100 pb-3">Personal Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           First Name <span className="text-red-500">*</span>
@@ -581,12 +589,12 @@ export function AddEmployee() {
                       </div>
                     </div>
                     
-                    <div className="mt-6">
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3">Profile Photo</h4>
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-indigo-500 transition-colors cursor-pointer">
-                        <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                        <p className="text-sm text-gray-600">Click to upload or drag and drop</p>
-                        <p className="text-xs text-gray-400 mt-1">PNG, JPG up to 5MB</p>
+                    <div className="pt-4 border-t border-gray-100">
+                      <h4 className="text-sm font-bold text-gray-700 mb-4 uppercase tracking-wider">Profile Photo</h4>
+                      <div className="max-w-md border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-indigo-500 hover:bg-indigo-50/30 transition-all cursor-pointer group">
+                        <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3 group-hover:text-indigo-500 transition-colors" />
+                        <p className="text-sm font-medium text-gray-700">Click to upload or drag and drop</p>
+                        <p className="text-xs text-gray-400 mt-2">PNG, JPG or JPEG (Max. 5MB)</p>
                       </div>
                     </div>
                   </div>
@@ -594,10 +602,10 @@ export function AddEmployee() {
 
                 {/* Contact Details Section */}
                 {activeSection === "contact" && (
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Primary Contact Information</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="animate-in fade-in slide-in-from-left-2 duration-300 space-y-8">
+                    <div className="space-y-6">
+                      <h3 className="text-xl font-bold text-gray-900 border-b border-gray-100 pb-3">Primary Contact Information</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             Email Address <span className="text-red-500">*</span>
@@ -626,7 +634,7 @@ export function AddEmployee() {
                             placeholder="+1 (555) 123-4567"
                           />
                         </div>
-                        <div className="md:col-span-2">
+                        <div className="md:col-span-3">
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             Street Address <span className="text-red-500">*</span>
                           </label>
@@ -699,9 +707,9 @@ export function AddEmployee() {
                       </div>
                     </div>
 
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Secondary Contact Information (Optional)</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="pt-6 border-t border-gray-100 space-y-6">
+                      <h3 className="text-xl font-bold text-gray-900 border-b border-gray-100 pb-3">Secondary Contact Information (Optional)</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             Email Address
@@ -728,7 +736,7 @@ export function AddEmployee() {
                             placeholder="+1 (555) 987-6543"
                           />
                         </div>
-                        <div className="md:col-span-2">
+                        <div className="md:col-span-3">
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             Street Address
                           </label>
@@ -788,9 +796,9 @@ export function AddEmployee() {
 
                 {/* Emergency Contact Section */}
                 {activeSection === "emergency" && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Emergency Contact Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="animate-in fade-in slide-in-from-left-2 duration-300 space-y-6">
+                    <h3 className="text-xl font-bold text-gray-900 border-b border-gray-100 pb-3">Emergency Contact Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Contact Name <span className="text-red-500">*</span>
@@ -858,9 +866,9 @@ export function AddEmployee() {
 
                 {/* Job Details Section */}
                 {activeSection === "job" && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Job Details</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="animate-in fade-in slide-in-from-left-2 duration-300 space-y-6">
+                    <h3 className="text-xl font-bold text-gray-900 border-b border-gray-100 pb-3">Job Details</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Employee ID <span className="text-red-500">*</span>
@@ -1012,10 +1020,10 @@ export function AddEmployee() {
 
                 {/* Compensation Section */}
                 {activeSection === "compensation" && (
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Base Compensation</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="animate-in fade-in slide-in-from-left-2 duration-300 space-y-8">
+                    <div className="space-y-6">
+                      <h3 className="text-xl font-bold text-gray-900 border-b border-gray-100 pb-3">Base Compensation</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             Base Salary <span className="text-red-500">*</span>
@@ -1066,15 +1074,15 @@ export function AddEmployee() {
                       </div>
                     </div>
 
-                    <div>
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900">Compensation Breakdown</h3>
+                    <div className="pt-6 border-t border-gray-100 space-y-6">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-xl font-bold text-gray-900 border-b border-gray-100 pb-3 flex-1">Compensation Breakdown</h3>
                         <Button
                           type="button"
                           size="sm"
                           variant="outline"
                           onClick={addCompensationSplit}
-                          className="gap-2"
+                          className="gap-2 ml-4 mb-3"
                         >
                           <PlusCircle className="w-4 h-4" />
                           Add Component
@@ -1144,9 +1152,9 @@ export function AddEmployee() {
 
                 {/* Family Members Section */}
                 {activeSection === "family" && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">Family Members</h3>
+                  <div className="animate-in fade-in slide-in-from-left-2 duration-300 space-y-6">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <h3 className="text-xl font-bold text-gray-900">Family Members</h3>
                       <Button
                         type="button"
                         size="sm"
@@ -1177,7 +1185,7 @@ export function AddEmployee() {
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                               <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
                                 <input
@@ -1232,9 +1240,9 @@ export function AddEmployee() {
 
                 {/* Education History Section */}
                 {activeSection === "education" && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">Educational History</h3>
+                  <div className="animate-in fade-in slide-in-from-left-2 duration-300 space-y-6">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <h3 className="text-xl font-bold text-gray-900">Educational History</h3>
                       <Button
                         type="button"
                         size="sm"
@@ -1265,8 +1273,8 @@ export function AddEmployee() {
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="md:col-span-2">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                              <div className="md:col-span-3">
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Institution Name</label>
                                 <input
                                   type="text"
@@ -1334,9 +1342,9 @@ export function AddEmployee() {
 
                 {/* Employment History Section */}
                 {activeSection === "employment" && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">Employment History</h3>
+                  <div className="animate-in fade-in slide-in-from-left-2 duration-300 space-y-6">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <h3 className="text-xl font-bold text-gray-900">Employment History</h3>
                       <Button
                         type="button"
                         size="sm"
@@ -1367,7 +1375,7 @@ export function AddEmployee() {
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                               <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
                                 <input
@@ -1406,7 +1414,7 @@ export function AddEmployee() {
                                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 />
                               </div>
-                              <div className="md:col-span-2">
+                              <div className="md:col-span-3">
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Key Responsibilities</label>
                                 <textarea
                                   value={emp.responsibilities}
@@ -1416,7 +1424,7 @@ export function AddEmployee() {
                                   placeholder="Describe main responsibilities..."
                                 />
                               </div>
-                              <div className="md:col-span-2">
+                              <div className="md:col-span-3">
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Reason for Leaving</label>
                                 <input
                                   type="text"
@@ -1436,9 +1444,9 @@ export function AddEmployee() {
 
                 {/* Documents Section */}
                 {activeSection === "documents" && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Identity & Legal Documents</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="animate-in fade-in slide-in-from-left-2 duration-300 space-y-6">
+                    <h3 className="text-xl font-bold text-gray-900 border-b border-gray-100 pb-3">Identity & Legal Documents</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Passport Number
@@ -1537,9 +1545,9 @@ export function AddEmployee() {
 
                 {/* Bank Details Section */}
                 {activeSection === "bank" && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Bank Account Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="animate-in fade-in slide-in-from-left-2 duration-300 space-y-6">
+                    <h3 className="text-xl font-bold text-gray-900 border-b border-gray-100 pb-3">Bank Account Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Bank Name
@@ -1598,9 +1606,9 @@ export function AddEmployee() {
 
                 {/* Skills & Certifications Section */}
                 {activeSection === "skills" && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Skills & Certifications</h3>
-                    <div className="space-y-4">
+                  <div className="animate-in fade-in slide-in-from-left-2 duration-300 space-y-6">
+                    <h3 className="text-xl font-bold text-gray-900 border-b border-gray-100 pb-3">Skills & Certifications</h3>
+                    <div className="space-y-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Skills
@@ -1649,7 +1657,7 @@ export function AddEmployee() {
               </div>
 
               {/* Form Actions */}
-              <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex items-center justify-between">
+              <div className="bg-white border-t border-gray-200 px-8 py-4 flex items-center justify-between rounded-b-lg">
                 <Button
                   type="button"
                   variant="outline"
@@ -1659,14 +1667,16 @@ export function AddEmployee() {
                 </Button>
                 <Button type="submit" disabled={isSubmitting} className="gap-2">
                   {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  Add Employee
+                  {id ? "Save" : "Add Employee"}
                 </Button>
               </div>
             </form>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+      </div>
+    </RoleGate>
   );
 }
 

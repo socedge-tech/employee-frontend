@@ -1,4 +1,4 @@
-import { apiFetch } from "./config";
+import axiosInstance from "./axiosInstance";
 
 export interface Role {
   id: number;
@@ -11,43 +11,45 @@ export interface Role {
 }
 
 export const getRoles = async (): Promise<Role[]> => {
-  const response = await apiFetch("/roles");
-  const json = await response.json();
-  if (!json.success) throw new Error(json.message);
-  return json.data;
+  try {
+    const response = await axiosInstance.get("/roles");
+    return response.data.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to fetch roles" };
+  }
 };
 
 export const getRole = async (id: number): Promise<Role> => {
-  const response = await apiFetch(`/roles/${id}`);
-  const json = await response.json();
-  if (!json.success) throw new Error(json.message);
-  return json.data;
+  try {
+    const response = await axiosInstance.get(`/roles/${id}`);
+    return response.data.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to fetch role details" };
+  }
 };
 
-export const createRole = async (data: { role_name: string; description: string }): Promise<Role> => {
-  const response = await apiFetch("/roles", {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-  const json = await response.json();
-  if (!json.success) throw new Error(json.message);
-  return json.data;
+export const createRole = async (data: any): Promise<Role> => {
+  try {
+    const response = await axiosInstance.post("/roles", data);
+    return response.data.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to create role" };
+  }
 };
 
-export const updateRole = async (id: number, data: { role_name?: string; description?: string; status?: boolean }): Promise<Role> => {
-  const response = await apiFetch(`/roles/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(data),
-  });
-  const json = await response.json();
-  if (!json.success) throw new Error(json.message);
-  return json.data;
+export const updateRole = async (id: number, data: any): Promise<Role> => {
+  try {
+    const response = await axiosInstance.put(`/roles/${id}`, data);
+    return response.data.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to update role" };
+  }
 };
 
 export const deleteRole = async (id: number): Promise<void> => {
-  const response = await apiFetch(`/roles/${id}`, {
-    method: "DELETE",
-  });
-  const json = await response.json();
-  if (!json.success) throw new Error(json.message);
+  try {
+    await axiosInstance.delete(`/roles/${id}`);
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to delete role" };
+  }
 };

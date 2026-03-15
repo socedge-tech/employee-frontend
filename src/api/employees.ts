@@ -1,55 +1,95 @@
-import { apiFetch } from "./config";
+import axiosInstance from "./axiosInstance";
 
 export interface Employee {
   id: number;
-  firstName: string;
-  lastName: string;
+  username: string;
   email: string;
-  employeeId?: string;
-  departmentId?: string;
-  roleId?: string;
-  avatar?: string;
-  [key: string]: any;
+  status: boolean;
+  created_at: string;
+  details?: {
+    id: number;
+    user_id: number;
+    first_name: string;
+    middle_name?: string;
+    last_name: string;
+    date_of_birth: string;
+    gender: string;
+    nationality: string;
+    marital_status: string;
+    blood_group: string;
+    phone: string;
+    secondary_phone?: string;
+    secondary_email?: string;
+    address: string;
+    city: string;
+    state: string;
+    zip: string;
+    country: string;
+    employee_id: string;
+    department_id: number;
+    job_role: string;
+    employment_type: string;
+    start_date: string;
+    work_location: string;
+    work_schedule?: string;
+    reporting_manager_id?: number;
+    probation_period?: number;
+    base_salary: string;
+    currency: string;
+    salary_frequency: string;
+    bank_name?: string;
+    account_holder_name?: string;
+    account_number?: string;
+    routing_number?: string;
+    ifsc_number?: string;
+    department?: {
+      id: number;
+      department_name: string;
+    };
+    [key: string]: any;
+  };
 }
 
 export const getEmployees = async (): Promise<Employee[]> => {
-  const response = await apiFetch("/employees");
-  const json = await response.json();
-  if (!json.success) throw new Error(json.message);
-  return json.data;
+  try {
+    const response = await axiosInstance.get("/employees");
+    return response.data.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to fetch employees" };
+  }
 };
 
 export const getEmployee = async (id: number): Promise<Employee> => {
-  const response = await apiFetch(`/employees/${id}`);
-  const json = await response.json();
-  if (!json.success) throw new Error(json.message);
-  return json.data;
+  try {
+    const response = await axiosInstance.get(`/employees/${id}`);
+    return response.data.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to fetch employee details" };
+  }
 };
 
 export const createEmployee = async (data: any): Promise<Employee> => {
-  const response = await apiFetch("/employees", {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-  const json = await response.json();
-  if (!json.success) throw new Error(json.message);
-  return json.data;
+  try {
+    const response = await axiosInstance.post("/employees", data);
+    return response.data.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to create employee" };
+  }
 };
 
 export const updateEmployee = async (id: number, data: any): Promise<Employee> => {
-  const response = await apiFetch(`/employees/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(data),
-  });
-  const json = await response.json();
-  if (!json.success) throw new Error(json.message);
-  return json.data;
+  try {
+    const response = await axiosInstance.put(`/employees/${id}`, data);
+    return response.data.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to update employee" };
+  }
 };
 
 export const deleteEmployee = async (id: number): Promise<void> => {
-  const response = await apiFetch(`/employees/${id}`, {
-    method: "DELETE",
-  });
-  const json = await response.json();
-  if (!json.success) throw new Error(json.message);
+  try {
+    await axiosInstance.delete(`/employees/${id}`);
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to delete employee" };
+  }
 };

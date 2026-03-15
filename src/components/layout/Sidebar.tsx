@@ -12,10 +12,14 @@ import {
   ChevronRight,
   Briefcase,
   DollarSign,
-  Shield
+  Shield,
+  Target,
+  Mail,
+  Bell
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.tsx";
 import { canAccessNavItem } from "../../config/permissions.ts";
+import { UserRole as UserRoleVal } from "../../types/rbac.ts";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -32,6 +36,9 @@ const navItems = [
   { path: "/learning", label: "Talent & Growth", icon: GraduationCap },
   { path: "/performance", label: "Performance", icon: TrendingUp },
   { path: "/engagement", label: "Engagement", icon: MessageSquare },
+  { path: "/crm", label: "CRM", icon: Target },
+  { path: "/email-management", label: "Email Management", icon: Mail },
+  { path: "/notify-management", label: "Notify Management", icon: Bell },
   { path: "/roles-permissions", label: "Roles & Permissions", icon: Shield },
   { path: "/settings", label: "System Settings", icon: Settings },
 ];
@@ -42,6 +49,15 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   // Filter navigation items based on user role
   const accessibleNavItems = navItems.filter(item => {
     if (!user) return false;
+    
+    // Special check for CRM: Admin, Super Admin, Finance, or Sales Department
+    if (item.path === '/crm') {
+      const isSalesDept = user.departmentId === '2'; // ID for Sales Dept based on database
+      const isFinanceDept = user.departmentId === '5'; // ID for Finance Dept based on database
+      const isAllowedRole = ([UserRoleVal.ADMIN, UserRoleVal.SUPER_ADMIN, UserRoleVal.FINANCE] as string[]).includes(user.role as string);
+      return isAllowedRole || isSalesDept || isFinanceDept;
+    }
+
     return canAccessNavItem(user.role, item.path);
   });
 

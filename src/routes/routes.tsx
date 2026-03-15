@@ -12,6 +12,7 @@ import { EmployeeManagement } from "../pages/EmployeeManagement.tsx";
 import { CompanySettings } from "../pages/CompanySettings.tsx";
 import { AddDepartment } from "../pages/AddDepartment.tsx";
 import { AddEmployee } from "../pages/AddEmployee.tsx";
+import { ViewEmployee } from "../pages/ViewEmployee.tsx";
 import { RolesPermissions } from "../pages/RolesPermissions.tsx";
 
 export default function AppRoutes() {
@@ -31,6 +32,7 @@ export default function AppRoutes() {
         <Route path="/company-structure/add-department" element={<AddDepartment />} />
         <Route path="/company-structure/edit-department/:id" element={<AddDepartment />} />
         <Route path="/employee-management" element={<EmployeeManagement />} />
+        <Route path="/employee-management/view-employee/:id" element={<ViewEmployee />} />
         <Route path="/employee-management/add-employee" element={<AddEmployee />} />
         <Route path="/employee-management/edit-employee/:id" element={<AddEmployee />} />
         <Route path="/roles-permissions" element={<RolesPermissions />} />

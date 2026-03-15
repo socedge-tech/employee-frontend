@@ -127,6 +127,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
           primaryRole = UserRoleVal.SUPER_ADMIN;
         } else if (normalizedRoles.includes(UserRoleVal.ADMIN)) {
           primaryRole = UserRoleVal.ADMIN;
+        } else if (normalizedRoles.includes(UserRoleVal.FINANCE)) {
+          primaryRole = UserRoleVal.FINANCE;
         } else if (normalizedRoles.includes(UserRoleVal.MANAGER)) {
           primaryRole = UserRoleVal.MANAGER;
         }

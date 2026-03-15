@@ -1,44 +1,46 @@
-import { apiFetch } from "./config";
+import axiosInstance from "./axiosInstance";
 
 export interface Team {
   id: number;
-  name: string;
-  description: string;
-  leadId?: string;
-  members?: string[];
+  department_id?: number;
+  team_name: string;
+  description?: string;
+  team_lead_id?: number | null;
+  team_lead?: { username: string } | null;
+  members?: any[];
 }
 
 export const getTeams = async (): Promise<Team[]> => {
-  const response = await apiFetch("/teams");
-  const json = await response.json();
-  if (!json.success) throw new Error(json.message);
-  return json.data;
+  try {
+    const response = await axiosInstance.get("/teams");
+    return response.data.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to fetch teams" };
+  }
 };
 
-export const createTeam = async (data: Partial<Team>): Promise<Team> => {
-  const response = await apiFetch("/teams", {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-  const json = await response.json();
-  if (!json.success) throw new Error(json.message);
-  return json.data;
+export const createTeam = async (data: any): Promise<Team> => {
+  try {
+    const response = await axiosInstance.post("/teams", data);
+    return response.data.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to create team" };
+  }
 };
 
-export const updateTeam = async (id: number, data: Partial<Team>): Promise<Team> => {
-  const response = await apiFetch(`/teams/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(data),
-  });
-  const json = await response.json();
-  if (!json.success) throw new Error(json.message);
-  return json.data;
+export const updateTeam = async (id: number, data: any): Promise<Team> => {
+  try {
+    const response = await axiosInstance.put(`/teams/${id}`, data);
+    return response.data.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to update team" };
+  }
 };
 
 export const deleteTeam = async (id: number): Promise<void> => {
-  const response = await apiFetch(`/teams/${id}`, {
-    method: "DELETE",
-  });
-  const json = await response.json();
-  if (!json.success) throw new Error(json.message);
+  try {
+    await axiosInstance.delete(`/teams/${id}`);
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to delete team" };
+  }
 };

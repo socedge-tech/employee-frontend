@@ -29,6 +29,8 @@ import {
 } from "../api/permissions.ts";
 import type { Permission } from "../api/permissions.ts";
 import { toast } from "sonner";
+import { Permission as RBACPermission } from "../types/rbac";
+import { RoleGate } from "../components/Auth/RoleGate";
 
 export function RolesPermissions() {
   const navigate = useNavigate();
@@ -148,224 +150,226 @@ export function RolesPermissions() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <Shield className="w-6 h-6 text-indigo-600" />
-              Roles & Permissions
-            </h1>
-            <p className="text-gray-500 text-sm">Manage system access levels and feature permissions</p>
+    <RoleGate permissions={[RBACPermission.MANAGE_SYSTEM_SETTINGS]}>
+      <div className="p-6 max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+              <ArrowLeft className="w-5 h-5 text-gray-600" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <Shield className="w-6 h-6 text-indigo-600" />
+                Roles & Permissions
+              </h1>
+              <p className="text-gray-500 text-sm">Manage system access levels and feature permissions</p>
+            </div>
+          </div>
+          <Button onClick={() => {
+            setIsEditingRole(false);
+            setRoleForm({ role_name: "", description: "" });
+            setShowRoleModal(true);
+          }} className="gap-2">
+            <Plus className="w-4 h-4" /> Add New Role
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Roles List */}
+          <div className="lg:col-span-4 space-y-4">
+            <Card className="h-full">
+              <CardHeader className="pb-3 border-b border-gray-100">
+                <div className="relative">
+                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search roles..."
+                    className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+              </CardHeader>
+              <CardContent className="p-0 max-h-[600px] overflow-y-auto">
+                {filteredRoles.map((role) => (
+                  <div
+                    key={role.id}
+                    onClick={() => handleSelectRole(role)}
+                    className={`flex items-center justify-between p-4 cursor-pointer transition-all border-l-4 ${
+                      selectedRole?.id === role.id 
+                        ? "bg-indigo-50 border-indigo-600" 
+                        : "hover:bg-gray-50 border-transparent"
+                    }`}
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-900">{role.role_name}</span>
+                        {selectedRole?.id === role.id && <Check className="w-4 h-4 text-indigo-600" />}
+                      </div>
+                      <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">{role.description}</p>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                       <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedRole(role);
+                            setIsEditingRole(true);
+                            setRoleForm({ role_name: role.role_name, description: role.description });
+                            setShowRoleModal(true);
+                          }}
+                          className="p-1.5 hover:bg-gray-200 rounded-md transition-colors"
+                        >
+                          <Edit2 className="w-3.5 h-3.5 text-gray-600" />
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteRole(role.id);
+                          }}
+                          className="p-1.5 hover:bg-red-50 rounded-md transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                        </button>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Role Permissions Editor */}
+          <div className="lg:col-span-8">
+            {selectedRole ? (
+              <Card className="h-full">
+                <CardHeader className="flex flex-row items-center justify-between border-b border-gray-100 pb-4">
+                  <div>
+                    <CardTitle className="text-xl">{selectedRole.role_name} Permissions</CardTitle>
+                    <p className="text-sm text-gray-500 mt-1">{selectedRole.description}</p>
+                  </div>
+                  <Button 
+                    onClick={handleSavePermissions} 
+                    className="gap-2" 
+                    disabled={isSavingPermissions}
+                  >
+                    {isSavingPermissions ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Check className="w-4 h-4" />
+                    )}
+                    Save Changes
+                  </Button>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="space-y-6">
+                    {/* Permissions Grouped by Prefix (e.g., employee.*, leave.*) */}
+                    {Object.entries(
+                      allPermissions.reduce((acc: any, p) => {
+                        const prefix = p.permission_name.split('.')[0] || 'other';
+                        if (!acc[prefix]) acc[prefix] = [];
+                        acc[prefix].push(p);
+                        return acc;
+                      }, {})
+                    ).map(([group, permissions]: [string, any]) => (
+                      <div key={group} className="space-y-3">
+                        <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                          <div className="w-1.5 h-4 bg-indigo-600 rounded-full" />
+                          {group} Management
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {permissions.map((p: Permission) => (
+                            <div
+                              key={p.id}
+                              onClick={() => togglePermission(p.id)}
+                              className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                                rolePermissions.includes(p.id)
+                                  ? "bg-indigo-50 border-indigo-200 ring-1 ring-indigo-200"
+                                  : "hover:border-gray-300 border-gray-100"
+                              }`}
+                            >
+                              <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${
+                                rolePermissions.includes(p.id)
+                                  ? "bg-indigo-600 border-indigo-600"
+                                  : "border-gray-300"
+                              }`}>
+                                {rolePermissions.includes(p.id) && <Check className="w-3.5 h-3.5 text-white" />}
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-gray-900">{p.permission_name}</p>
+                                <p className="text-xs text-gray-500 line-clamp-1">{p.description}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center p-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+                <Lock className="w-12 h-12 text-gray-300 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900">No Role Selected</h3>
+                <p className="text-gray-500 text-center max-w-xs mt-2">
+                  Select a role from the left sidebar to view and manage its permissions.
+                </p>
+              </div>
+            )}
           </div>
         </div>
-        <Button onClick={() => {
-          setIsEditingRole(false);
-          setRoleForm({ role_name: "", description: "" });
-          setShowRoleModal(true);
-        }} className="gap-2">
-          <Plus className="w-4 h-4" /> Add New Role
-        </Button>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Roles List */}
-        <div className="lg:col-span-4 space-y-4">
-          <Card className="h-full">
-            <CardHeader className="pb-3 border-b border-gray-100">
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search roles..."
-                  className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </CardHeader>
-            <CardContent className="p-0 max-h-[600px] overflow-y-auto">
-              {filteredRoles.map((role) => (
-                <div
-                  key={role.id}
-                  onClick={() => handleSelectRole(role)}
-                  className={`flex items-center justify-between p-4 cursor-pointer transition-all border-l-4 ${
-                    selectedRole?.id === role.id 
-                      ? "bg-indigo-50 border-indigo-600" 
-                      : "hover:bg-gray-50 border-transparent"
-                  }`}
+        {/* Role Modal */}
+        {showRoleModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <Card className="w-full max-w-md shadow-2xl animate-in zoom-in duration-200">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>{isEditingRole ? "Edit Role" : "Create New Role"}</CardTitle>
+                <button 
+                  onClick={() => setShowRoleModal(false)}
+                  className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                  aria-label="Close"
                 >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-900">{role.role_name}</span>
-                      {selectedRole?.id === role.id && <Check className="w-4 h-4 text-indigo-600" />}
-                    </div>
-                    <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">{role.description}</p>
-                  </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                     <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedRole(role);
-                          setIsEditingRole(true);
-                          setRoleForm({ role_name: role.role_name, description: role.description });
-                          setShowRoleModal(true);
-                        }}
-                        className="p-1.5 hover:bg-gray-200 rounded-md transition-colors"
-                      >
-                        <Edit2 className="w-3.5 h-3.5 text-gray-600" />
-                      </button>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteRole(role.id);
-                        }}
-                        className="p-1.5 hover:bg-red-50 rounded-md transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                      </button>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Role Permissions Editor */}
-        <div className="lg:col-span-8">
-          {selectedRole ? (
-            <Card className="h-full">
-              <CardHeader className="flex flex-row items-center justify-between border-b border-gray-100 pb-4">
-                <div>
-                  <CardTitle className="text-xl">{selectedRole.role_name} Permissions</CardTitle>
-                  <p className="text-sm text-gray-500 mt-1">{selectedRole.description}</p>
-                </div>
-                <Button 
-                  onClick={handleSavePermissions} 
-                  className="gap-2" 
-                  disabled={isSavingPermissions}
-                >
-                  {isSavingPermissions ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Check className="w-4 h-4" />
-                  )}
-                  Save Changes
-                </Button>
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
               </CardHeader>
-              <CardContent className="p-6">
-                <div className="space-y-6">
-                  {/* Permissions Grouped by Prefix (e.g., employee.*, leave.*) */}
-                  {Object.entries(
-                    allPermissions.reduce((acc: any, p) => {
-                      const prefix = p.permission_name.split('.')[0] || 'other';
-                      if (!acc[prefix]) acc[prefix] = [];
-                      acc[prefix].push(p);
-                      return acc;
-                    }, {})
-                  ).map(([group, permissions]: [string, any]) => (
-                    <div key={group} className="space-y-3">
-                      <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
-                        <div className="w-1.5 h-4 bg-indigo-600 rounded-full" />
-                        {group} Management
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {permissions.map((p: Permission) => (
-                          <div
-                            key={p.id}
-                            onClick={() => togglePermission(p.id)}
-                            className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
-                              rolePermissions.includes(p.id)
-                                ? "bg-indigo-50 border-indigo-200 ring-1 ring-indigo-200"
-                                : "hover:border-gray-300 border-gray-100"
-                            }`}
-                          >
-                            <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${
-                              rolePermissions.includes(p.id)
-                                ? "bg-indigo-600 border-indigo-600"
-                                : "border-gray-300"
-                            }`}>
-                              {rolePermissions.includes(p.id) && <Check className="w-3.5 h-3.5 text-white" />}
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-900">{p.permission_name}</p>
-                              <p className="text-xs text-gray-500 line-clamp-1">{p.description}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+              <CardContent className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Role Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g., HR Manager"
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={roleForm.role_name}
+                    onChange={(e) => setRoleForm({ ...roleForm, role_name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Description</label>
+                  <textarea
+                    placeholder="What can this role do?"
+                    rows={3}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                    value={roleForm.description}
+                    onChange={(e) => setRoleForm({ ...roleForm, description: e.target.value })}
+                  />
+                </div>
+                <div className="flex items-center gap-2 p-3 bg-blue-50 text-blue-700 rounded-lg text-xs">
+                  <Info className="w-4 h-4 flex-shrink-0" />
+                  You'll be able to assign specific module permissions after creating the role.
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <Button variant="outline" className="flex-1" onClick={() => setShowRoleModal(false)}>
+                    Cancel
+                  </Button>
+                  <Button className="flex-1" onClick={handleCreateRole}>
+                    {isEditingRole ? "Save Changes" : "Create Role"}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center p-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-              <Lock className="w-12 h-12 text-gray-300 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900">No Role Selected</h3>
-              <p className="text-gray-500 text-center max-w-xs mt-2">
-                Select a role from the left sidebar to view and manage its permissions.
-              </p>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-
-      {/* Role Modal */}
-      {showRoleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <Card className="w-full max-w-md shadow-2xl animate-in zoom-in duration-200">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>{isEditingRole ? "Edit Role" : "Create New Role"}</CardTitle>
-              <button 
-                onClick={() => setShowRoleModal(false)}
-                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Role Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g., HR Manager"
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  value={roleForm.role_name}
-                  onChange={(e) => setRoleForm({ ...roleForm, role_name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Description</label>
-                <textarea
-                  placeholder="What can this role do?"
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
-                  value={roleForm.description}
-                  onChange={(e) => setRoleForm({ ...roleForm, description: e.target.value })}
-                />
-              </div>
-              <div className="flex items-center gap-2 p-3 bg-blue-50 text-blue-700 rounded-lg text-xs">
-                <Info className="w-4 h-4 flex-shrink-0" />
-                You'll be able to assign specific module permissions after creating the role.
-              </div>
-              <div className="flex gap-3 pt-4">
-                <Button variant="outline" className="flex-1" onClick={() => setShowRoleModal(false)}>
-                  Cancel
-                </Button>
-                <Button className="flex-1" onClick={handleCreateRole}>
-                  {isEditingRole ? "Save Changes" : "Create Role"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-    </div>
+    </RoleGate>
   );
 }

@@ -1,4 +1,4 @@
-import { apiFetch } from "./config";
+import axiosInstance from "./axiosInstance";
 
 export interface Permission {
   id: number;
@@ -9,42 +9,44 @@ export interface Permission {
 }
 
 export const getPermissions = async (): Promise<Permission[]> => {
-  const response = await apiFetch("/roles/permissions/all");
-  const json = await response.json();
-  if (!json.success) throw new Error(json.message);
-  return json.data;
+  try {
+    const response = await axiosInstance.get("/roles/permissions/all");
+    return response.data.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to fetch permissions" };
+  }
 };
 
-export const createPermission = async (data: { permission_name: string; description: string }): Promise<Permission> => {
-  const response = await apiFetch("/roles/permissions", {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-  const json = await response.json();
-  if (!json.success) throw new Error(json.message);
-  return json.data;
+export const createPermission = async (data: any): Promise<Permission> => {
+  try {
+    const response = await axiosInstance.post("/roles/permissions", data);
+    return response.data.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to create permission" };
+  }
 };
 
 export const assignPermissionsToRole = async (roleId: number, permissionIds: number[]): Promise<void> => {
-  const response = await apiFetch(`/roles/${roleId}/permissions`, {
-    method: "POST",
-    body: JSON.stringify({ permission_ids: permissionIds }),
-  });
-  const json = await response.json();
-  if (!json.success) throw new Error(json.message);
+  try {
+    await axiosInstance.post(`/roles/${roleId}/permissions`, { permission_ids: permissionIds });
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to assign permissions" };
+  }
 };
 
 export const getAssignedPermissionsForRole = async (roleId: number): Promise<any> => {
-  const response = await apiFetch(`/roles/${roleId}/permissions`);
-  const json = await response.json();
-  if (!json.success) throw new Error(json.message);
-  return json.data;
+  try {
+    const response = await axiosInstance.get(`/roles/${roleId}/permissions`);
+    return response.data.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to fetch assigned permissions" };
+  }
 };
 
 export const deletePermissionFromRole = async (roleId: number, permissionId: number): Promise<void> => {
-  const response = await apiFetch(`/roles/${roleId}/permissions/${permissionId}`, {
-    method: "DELETE",
-  });
-  const json = await response.json();
-  if (!json.success) throw new Error(json.message);
+  try {
+    await axiosInstance.delete(`/roles/${roleId}/permissions/${permissionId}`);
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to remove permission" };
+  }
 };

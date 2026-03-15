@@ -1,15 +1,21 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { ArrowLeft, Building2, Save, MapPin, Briefcase, Calendar, ChevronRight, Loader2 } from "lucide-react";
-import { Card, CardHeader, CardContent, CardTitle } from "../components/ui/card.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { toast } from "sonner";
 import { getOrganizations, createOrganization, updateOrganization } from "../api/organizations.ts";
+import { getDepartments } from "../api/departments.ts";
+import { getEmployees } from "../api/employees.ts";
+import { ProgressBar } from "../components/company/ProgressBar.tsx";
+import { Permission } from "../types/rbac.ts";
+import { CompanyStructureForm } from "../components/company/CompanyStructureForm.tsx";
+import { usePermissions } from "../hooks/usePermissions";
 
 interface CompanyData {
   // Legal Entity & Tax Data
   legalEntityName: string;
   companyCode: string;
+  taxRegistrationNumber: string; // New field from column: tax_registration_number
   taxRegistrationNumbers: {
     pan?: string;
     tin?: string;
@@ -33,6 +39,7 @@ interface CompanyData {
   // Organizational Structure
   departments: string[];
   businessUnits: string[];
+  divisions: string[];
   costCenters: string[];
   jobArchitecture: {
     enabled: boolean;
@@ -71,6 +78,7 @@ interface CompanyData {
 const initialCompanyData: CompanyData = {
   legalEntityName: "",
   companyCode: "",
+  taxRegistrationNumber: "",
   taxRegistrationNumbers: {
     pan: "",
     tin: "",
@@ -89,9 +97,10 @@ const initialCompanyData: CompanyData = {
   jurisdiction: "",
   currency: "USD",
   fiscalYearEnd: "",
-  companyType: "Private Limited",
+  companyType: "",
   departments: [],
   businessUnits: [],
+  divisions: [],
   costCenters: [],
   jobArchitecture: {
     enabled: false,
@@ -116,34 +125,44 @@ export function CompanySettings() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [orgId, setOrgId] = useState<number | null>(null);
+  const [departmentsCount, setDepartmentsCount] = useState<number>(0);
+  const [employeesCount, setEmployeesCount] = useState<number>(0);
+  
+  const { can } = usePermissions();
+  const isReadOnly = !can(Permission.EDIT_COMPANY_STRUCTURE);
 
-  // Calculate completion percentage
-  const calculateCompletion = () => {
-    let completed = 0;
-    let total = 10; // Total key fields
+  // Calculate completion percentage dynamically based on actual field values
+  const completionPercentage = useMemo(() => {
+    const requiredFields = [
+      companyData.legalEntityName,
+      companyData.companyCode,
+      companyData.companyType,
+      companyData.currency,
+      companyData.legalAddress.street,
+      companyData.legalAddress.city,
+      companyData.legalAddress.state,
+      companyData.legalAddress.zipCode,
+      companyData.legalAddress.country,
+      companyData.taxRegistrationNumber,
+    ];
 
-    // Legal fields (4)
-    if (companyData.legalEntityName) completed++;
-    if (companyData.companyCode) completed++;
-    if (companyData.companyType) completed++;
-    if (companyData.currency) completed++;
+    const filledRequired = requiredFields.filter(val => typeof val === "string" && val.trim() !== "").length;
 
-    // Organizational fields (1)
-    if ((companyData.businessUnits || []).some(bu => bu.trim()) || (companyData.costCenters || []).some(cc => cc.trim())) completed++;
+    const auxiliaryChecks = [
+      { name: "Business Units", value: (companyData.businessUnits || []).some(bu => bu && bu.trim() !== "") },
+      { name: "Divisions", value: (companyData.divisions || []).some(div => div && div.trim() !== "") },
+      { name: "Cost Centers", value: (companyData.costCenters || []).some(cc => cc && cc.trim() !== "") },
+      { name: "Departments", value: departmentsCount > 0 },
+      { name: "Locations", value: (companyData.locations || []).length > 0 }
+    ];
 
-    // Geographical fields (1)
-    if (companyData.locations.length > 0) completed++;
+    const filledAuxiliary = auxiliaryChecks.filter(check => check.value).length;
 
-    // HR/Payroll fields (4)
-    if (companyData.payFrequency) completed++;
-    if (companyData.workingCalendar.standardHours > 0) completed++;
-    if (companyData.workingCalendar.workingDays.length > 0) completed++;
-    if (companyData.payrollStatutoryUnit || companyData.legalEmployer) completed++;
+    const totalPossible = requiredFields.length + auxiliaryChecks.length;
+    const totalFilled = filledRequired + filledAuxiliary;
 
-    return Math.round((completed / total) * 100);
-  };
-
-  const completionPercentage = calculateCompletion();
+    return Math.round((totalFilled / totalPossible) * 100);
+  }, [companyData, departmentsCount]);
 
   useEffect(() => {
     // Load saved company data from localStorage
@@ -190,9 +209,10 @@ export function CompanySettings() {
           const mainOrg = organization;
           setOrgId(mainOrg.id);
           setCompanyData({
-            legalEntityName: mainOrg.entity_name || "",
+            legalEntityName: mainOrg.legal_entity_name || mainOrg.entity_name || "",
             companyCode: mainOrg.company_code || "",
-            companyType: mainOrg.company_type || "Private Limited",
+            taxRegistrationNumber: mainOrg.tax_registration_number || "",
+            companyType: mainOrg.company_type || "",
             jurisdiction: mainOrg.jurisdiction || "",
             currency: mainOrg.currency || "USD",
             fiscalYearEnd: mainOrg.fiscal_year_end || "",
@@ -205,28 +225,29 @@ export function CompanySettings() {
               other: mainOrg.other_tax_id || "",
             },
             legalAddress: {
-              street: mainOrg.address || "",
+              street: mainOrg.legal_address || mainOrg.address || "",
               city: mainOrg.city || "",
               state: mainOrg.state || "",
               zipCode: mainOrg.zip || "",
               country: mainOrg.country || "",
             },
             departments: [],
-            businessUnits: mainOrg.business_unit ? mainOrg.business_unit.split(",").map(i => i.trim()) : [],
-            costCenters: mainOrg.cost_center ? mainOrg.cost_center.split(",").map(i => i.trim()) : [],
+            businessUnits: mainOrg.business_unit ? mainOrg.business_unit.split(",").map((i: string) => i.trim()) : [],
+            divisions: mainOrg.division ? mainOrg.division.split(",").map((i: string) => i.trim()) : [],
+            costCenters: mainOrg.cost_center ? mainOrg.cost_center.split(",").map((i: string) => i.trim()) : [],
             jobArchitecture: {
               enabled: mainOrg.job_architecture || false,
               levels: [],
             },
-            locations: (mainOrg.branches || []).map((branch: any) => ({
-              id: branch.id.toString(),
-              locationCode: branch.branch_code || "",
-              locationName: branch.branch_name || "",
+            locations: (mainOrg.branches || mainOrg.branch || []).map((branch: any) => ({
+              id: (branch.id || Date.now()).toString(),
+              locationCode: branch.location_code || branch.branch_code || "",
+              locationName: branch.location_name || branch.branch_name || "",
               address: {
-                street: branch.address || "",
+                street: branch.street_address || branch.address || "",
                 city: branch.city || "",
                 state: branch.state || "",
-                zipCode: branch.zip || "",
+                zipCode: branch.zip_code || branch.zip || "",
                 country: branch.country || "",
               },
               timeZone: branch.time_zone || "",
@@ -243,6 +264,20 @@ export function CompanySettings() {
               publicHolidays: mainOrg.public_holidays || [],
             },
           });
+        }
+
+        try {
+          const depts = await getDepartments();
+          setDepartmentsCount(Array.isArray(depts) ? depts.length : 0);
+        } catch (e) {
+          console.error("Failed to load departments count", e);
+        }
+
+        try {
+          const emps = await getEmployees();
+          setEmployeesCount(Array.isArray(emps) ? emps.length : 0);
+        } catch (e) {
+          console.error("Failed to load employees count", e);
         }
       } catch (error) {
         console.error("Failed to load organization", error);
@@ -264,6 +299,31 @@ export function CompanySettings() {
       return;
     }
 
+    // Dynamic Validation based on Country
+    const ctry = companyData.legalAddress.country;
+    if (ctry === "India") {
+      const pan = companyData.taxRegistrationNumbers.pan || "";
+      if (!pan || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)) {
+        toast.error("Invalid PAN Format", { description: "Please enter a valid PAN (e.g., ABCDE1234F)." });
+        setActiveTab("legal");
+        return;
+      }
+    } else if (ctry === "USA") {
+      const ein = companyData.taxRegistrationNumbers.ein || "";
+      if (!ein || !/^\d{2}-\d{7}$/.test(ein)) {
+        toast.error("Invalid EIN Format", { description: "Please enter a valid EIN (e.g., 12-3456789)." });
+        setActiveTab("legal");
+        return;
+      }
+    } else if (ctry === "France") {
+      const siret = companyData.taxRegistrationNumbers.siret || "";
+      if (!siret || !/^\d{14}$/.test(siret.replace(/\s/g, ""))) {
+        toast.error("Invalid SIRET Format", { description: "Please enter a valid 14-digit SIRET number." });
+        setActiveTab("legal");
+        return;
+      }
+    }
+
     setIsSaving(true);
     // Save to localStorage
     localStorage.setItem("companyData", JSON.stringify(companyData));
@@ -271,8 +331,10 @@ export function CompanySettings() {
     // Save to API
     const apiPayload = {
       entity_name: companyData.legalEntityName,
+      legal_entity_name: companyData.legalEntityName,
       company_code: companyData.companyCode,
       company_type: companyData.companyType,
+      tax_registration_number: companyData.taxRegistrationNumber,
       jurisdiction: companyData.jurisdiction,
       currency: companyData.currency,
       fiscal_year_end: companyData.fiscalYearEnd,
@@ -283,12 +345,14 @@ export function CompanySettings() {
       siret: companyData.taxRegistrationNumbers.siret,
       other_tax_id: companyData.taxRegistrationNumbers.other,
       address: companyData.legalAddress.street,
+      legal_address: companyData.legalAddress.street,
       city: companyData.legalAddress.city,
       state: companyData.legalAddress.state,
       country: companyData.legalAddress.country,
       zip: companyData.legalAddress.zipCode,
-      business_unit: companyData.businessUnits.filter(v => v.trim()).join(", "),
-      cost_center: companyData.costCenters.filter(v => v.trim()).join(", "),
+      business_unit: (companyData.businessUnits || []).filter(v => v && v.trim()).join(", "),
+      division: (companyData.divisions || []).filter(v => v && v.trim()).join(", "),
+      cost_center: (companyData.costCenters || []).filter(v => v && v.trim()).join(", "),
       job_architecture: companyData.jobArchitecture.enabled,
       payroll_statutory_unit: companyData.payrollStatutoryUnit,
       legal_employer: companyData.legalEmployer,
@@ -298,24 +362,24 @@ export function CompanySettings() {
       working_days: companyData.workingCalendar.workingDays,
       public_holidays: companyData.workingCalendar.publicHolidays.filter(v => v.trim()),
       branches: companyData.locations.map(loc => ({
-        branch_name: loc.locationName,
-        branch_code: loc.locationCode,
-        address: loc.address.street,
+        location_name: loc.locationName,
+        location_code: loc.locationCode,
+        street_address: loc.address.street,
         city: loc.address.city,
         state: loc.address.state,
-        zip: loc.address.zipCode,
+        zip_code: loc.address.zipCode,
         country: loc.address.country,
         time_zone: loc.timeZone,
         tax_location: loc.taxLocation,
         gst: loc.gst
       })),
       branch: companyData.locations.map(loc => ({
-        branch_name: loc.locationName,
-        branch_code: loc.locationCode,
-        address: loc.address.street,
+        location_name: loc.locationName,
+        location_code: loc.locationCode,
+        street_address: loc.address.street,
         city: loc.address.city,
         state: loc.address.state,
-        zip: loc.address.zipCode,
+        zip_code: loc.address.zipCode,
         country: loc.address.country,
         time_zone: loc.timeZone,
         tax_location: loc.taxLocation,
@@ -425,7 +489,7 @@ export function CompanySettings() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/company-structure")}>
+          <Button variant="ghost" size="sm" onClick={() => navigate("/company-structure")} className="hover:-translate-y-1 hover:scale-105 transition-all duration-200">
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div>
@@ -443,49 +507,13 @@ export function CompanySettings() {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          {/* Completion Progress */}
-          <div className="flex items-center gap-2">
-            <div className="text-right">
-              <p className="text-sm font-medium text-gray-700">{completionPercentage}% Complete</p>
-              <p className="text-xs text-gray-500">Configuration Progress</p>
-            </div>
-            <div className="w-16 h-16">
-              <svg className="transform -rotate-90" viewBox="0 0 36 36">
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="16"
-                  fill="none"
-                  className="stroke-gray-200"
-                  strokeWidth="3"
-                />
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="16"
-                  fill="none"
-                  className="stroke-indigo-600"
-                  strokeWidth="3"
-                  strokeDasharray={`${completionPercentage}, 100`}
-                  strokeLinecap="round"
-                />
-                <text
-                  x="18"
-                  y="18"
-                  className="fill-indigo-600 text-xs font-semibold"
-                  textAnchor="middle"
-                  dy="0.3em"
-                  transform="rotate(90 18 18)"
-                >
-                  {completionPercentage}%
-                </text>
-              </svg>
-            </div>
-          </div>
-          <Button onClick={handleSave} disabled={isSaving} className="gap-2">
-            <Save className="w-4 h-4" />
-            {isSaving ? "Saving..." : "Save Changes"}
-          </Button>
+          <ProgressBar percentage={completionPercentage} />
+          {!isReadOnly && (
+            <Button onClick={handleSave} disabled={isSaving} className="gap-2">
+              <Save className="w-4 h-4" />
+              {isSaving ? "Saving..." : "Save Changes"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -513,867 +541,31 @@ export function CompanySettings() {
       </div>
 
       {/* Tab Content */}
-      <div>
-        {/* Legal Entity & Tax Data */}
-        {activeTab === "legal" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Info Panel */}
-            <div className="lg:col-span-2">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                  <Building2 className="w-5 h-5 text-blue-600 mt-0.5" />
-                  <div>
-                    <h4 className="font-semibold text-blue-900 text-sm mb-1">
-                      Legal Entity & Tax Information
-                    </h4>
-                    <p className="text-sm text-blue-700">
-                      Define the legally registered entity, which is critical for taxation and statutory compliance. This information will be used across payroll, reporting, and compliance modules.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Legal Entity Information</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Legal Entity Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={companyData.legalEntityName}
-                      onChange={(e) =>
-                        setCompanyData({ ...companyData, legalEntityName: e.target.value })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                      placeholder="Enter legal entity name"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Company Code/ID <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={companyData.companyCode}
-                      onChange={(e) =>
-                        setCompanyData({ ...companyData, companyCode: e.target.value })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                      placeholder="Enter company code"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Company Type <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={companyData.companyType}
-                      onChange={(e) =>
-                        setCompanyData({ ...companyData, companyType: e.target.value })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                    >
-                      <option value="Private Limited">Private Limited</option>
-                      <option value="Public Limited">Public Limited</option>
-                      <option value="LLP">Limited Liability Partnership (LLP)</option>
-                      <option value="Sole Proprietorship">Sole Proprietorship</option>
-                      <option value="Partnership">Partnership</option>
-                      <option value="Corporation">Corporation</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Jurisdiction
-                    </label>
-                    <input
-                      type="text"
-                      value={companyData.jurisdiction}
-                      onChange={(e) =>
-                        setCompanyData({ ...companyData, jurisdiction: e.target.value })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                      placeholder="e.g., Delaware, USA"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Currency <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={companyData.currency}
-                      onChange={(e) =>
-                        setCompanyData({ ...companyData, currency: e.target.value })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                    >
-                      <option value="USD">USD - US Dollar</option>
-                      <option value="EUR">EUR - Euro</option>
-                      <option value="GBP">GBP - British Pound</option>
-                      <option value="INR">INR - Indian Rupee</option>
-                      <option value="AUD">AUD - Australian Dollar</option>
-                      <option value="CAD">CAD - Canadian Dollar</option>
-                      <option value="SGD">SGD - Singapore Dollar</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Fiscal Year End
-                    </label>
-                    <input
-                      type="date"
-                      value={companyData.fiscalYearEnd}
-                      onChange={(e) =>
-                        setCompanyData({ ...companyData, fiscalYearEnd: e.target.value })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Tax Registration Numbers</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      PAN (India)
-                    </label>
-                    <input
-                      type="text"
-                      value={companyData.taxRegistrationNumbers.pan}
-                      onChange={(e) =>
-                        updateField("taxRegistrationNumbers", "pan", e.target.value)
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                      placeholder="ABCDE1234F"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      EIN/TIN (US)
-                    </label>
-                    <input
-                      type="text"
-                      value={companyData.taxRegistrationNumbers.ein}
-                      onChange={(e) =>
-                        updateField("taxRegistrationNumbers", "ein", e.target.value)
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                      placeholder="12-3456789"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      SIRET (France)
-                    </label>
-                    <input
-                      type="text"
-                      value={companyData.taxRegistrationNumbers.siret}
-                      onChange={(e) =>
-                        updateField("taxRegistrationNumbers", "siret", e.target.value)
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                      placeholder="123 456 789 01234"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Other Tax ID
-                    </label>
-                    <input
-                      type="text"
-                      value={companyData.taxRegistrationNumbers.other}
-                      onChange={(e) =>
-                        updateField("taxRegistrationNumbers", "other", e.target.value)
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                      placeholder="Enter other tax registration number"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Legal Address</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Street Address <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={companyData.legalAddress.street}
-                      onChange={(e) => updateField("legalAddress", "street", e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                      placeholder="Enter street address"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        City <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={companyData.legalAddress.city}
-                        onChange={(e) => updateField("legalAddress", "city", e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                        placeholder="Enter city"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        State/Province <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={companyData.legalAddress.state}
-                        onChange={(e) => updateField("legalAddress", "state", e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                        placeholder="Enter state/province"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Zip/Postal Code <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={companyData.legalAddress.zipCode}
-                        onChange={(e) => updateField("legalAddress", "zipCode", e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                        placeholder="Enter zip/postal code"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Country <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={companyData.legalAddress.country}
-                        onChange={(e) => updateField("legalAddress", "country", e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                        placeholder="Enter country"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Organizational Structure */}
-        {activeTab === "organizational" && (
-          <div className="grid grid-cols-1 gap-6">
-            {/* Info Panel */}
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <Briefcase className="w-5 h-5 text-purple-600 mt-0.5" />
-                <div>
-                  <h4 className="font-semibold text-purple-900 text-sm mb-1">
-                    Organizational Structure
-                  </h4>
-                  <p className="text-sm text-purple-700">
-                    Define how your company is divided into functional units. Business units, cost centers, and job architecture help with financial tracking and reporting.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Business Units & Divisions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Business Units
-                    </label>
-                    <textarea
-                      value={companyData.businessUnits.join("\n")}
-                      onChange={(e) =>
-                        setCompanyData({
-                          ...companyData,
-                          businessUnits: e.target.value.split("\n"),
-                        })
-                      }
-                      rows={4}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                      placeholder="Enter each business unit on a new line&#10;e.g., Product A&#10;Region B&#10;Service C"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Enter each business unit on a new line
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Cost Centers</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cost Center Codes
-                  </label>
-                  <textarea
-                    value={companyData.costCenters.join("\n")}
-                    onChange={(e) =>
-                      setCompanyData({
-                        ...companyData,
-                        costCenters: e.target.value.split("\n"),
-                      })
-                    }
-                    rows={4}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                    placeholder="Enter each cost center on a new line&#10;e.g., CC-100 - Engineering&#10;CC-200 - Sales&#10;CC-300 - Marketing"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Used for financial tracking and allocating employee costs
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Job Architecture</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      id="jobArchitecture"
-                      checked={companyData.jobArchitecture.enabled}
-                      onChange={(e) =>
-                        setCompanyData({
-                          ...companyData,
-                          jobArchitecture: {
-                            ...companyData.jobArchitecture,
-                            enabled: e.target.checked,
-                          },
-                        })
-                      }
-                      className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-600"
-                    />
-                    <label htmlFor="jobArchitecture" className="text-sm font-medium text-gray-700">
-                      Enable Job Architecture (Job Levels & Codes)
-                    </label>
-                  </div>
-
-                  {companyData.jobArchitecture.enabled && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Job Levels
-                      </label>
-                      <textarea
-                        value={companyData.jobArchitecture.levels.join("\n")}
-                        onChange={(e) =>
-                          setCompanyData({
-                            ...companyData,
-                            jobArchitecture: {
-                              ...companyData.jobArchitecture,
-                              levels: e.target.value.split("\n"),
-                            },
-                          })
-                        }
-                        rows={6}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                        placeholder="Enter each job level on a new line&#10;e.g., Executive&#10;Senior Manager&#10;Manager&#10;Senior Analyst&#10;Analyst&#10;Associate"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Define job levels from highest to lowest
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Geographical/Location Structure */}
-        {activeTab === "geographical" && (
-          <div className="space-y-6">
-            {/* Info Panel */}
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <MapPin className="w-5 h-5 text-green-600 mt-0.5" />
-                <div>
-                  <h4 className="font-semibold text-green-900 text-sm mb-1">
-                    Geographical & Location Structure
-                  </h4>
-                  <p className="text-sm text-green-700">
-                    Add physical or logical locations for your organization. This is crucial for regional compliance such as tax, labor laws, and time tracking.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-medium text-gray-900">Office Locations</h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  Add physical or logical locations for regional compliance
-                </p>
-              </div>
-              <Button onClick={addLocation} size="sm">
-                <MapPin className="w-4 h-4 mr-2" />
-                Add Location
-              </Button>
-            </div>
-
-            {companyData.locations.length === 0 ? (
-              <Card>
-                <CardContent className="py-12">
-                  <div className="text-center">
-                    <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                    <h3 className="text-sm font-medium text-gray-900 mb-1">No locations added</h3>
-                    <p className="text-sm text-gray-500 mb-4">
-                      Add your first office location to get started
-                    </p>
-                    <Button onClick={addLocation} size="sm">
-                      Add Location
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {companyData.locations.map((location) => (
-                  <Card key={location.id}>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                      <CardTitle className="text-base">
-                        {location.locationName || "New Location"}
-                      </CardTitle>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeLocation(location.id)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        Remove
-                      </Button>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Location Name <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={location.locationName}
-                            onChange={(e) =>
-                              updateLocation(location.id, "locationName", e.target.value)
-                            }
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                            placeholder="e.g., Headquarters, New York Office"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Location Code <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={location.locationCode}
-                            onChange={(e) =>
-                              updateLocation(location.id, "locationCode", e.target.value)
-                            }
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                            placeholder="e.g., HQ-001, NYC-001"
-                          />
-                        </div>
-
-                        <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Street Address
-                          </label>
-                          <input
-                            type="text"
-                            value={location.address.street}
-                            onChange={(e) =>
-                              updateLocation(location.id, "address", {
-                                ...location.address,
-                                street: e.target.value,
-                              })
-                            }
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                            placeholder="Enter street address"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            City
-                          </label>
-                          <input
-                            type="text"
-                            value={location.address.city}
-                            onChange={(e) =>
-                              updateLocation(location.id, "address", {
-                                ...location.address,
-                                city: e.target.value,
-                              })
-                            }
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                            placeholder="Enter city"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            State/Province
-                          </label>
-                          <input
-                            type="text"
-                            value={location.address.state}
-                            onChange={(e) =>
-                              updateLocation(location.id, "address", {
-                                ...location.address,
-                                state: e.target.value,
-                              })
-                            }
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                            placeholder="Enter state/province"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Zip/Postal Code
-                          </label>
-                          <input
-                            type="text"
-                            value={location.address.zipCode}
-                            onChange={(e) =>
-                              updateLocation(location.id, "address", {
-                                ...location.address,
-                                zipCode: e.target.value,
-                              })
-                            }
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                            placeholder="Enter zip/postal code"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Country
-                          </label>
-                          <input
-                            type="text"
-                            value={location.address.country}
-                            onChange={(e) =>
-                              updateLocation(location.id, "address", {
-                                ...location.address,
-                                country: e.target.value,
-                              })
-                            }
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                            placeholder="Enter country"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Time Zone
-                          </label>
-                          <select
-                            value={location.timeZone}
-                            onChange={(e) =>
-                              updateLocation(location.id, "timeZone", e.target.value)
-                            }
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                          >
-                            <option value="">Select time zone</option>
-                            <option value="America/New_York">Eastern Time (ET)</option>
-                            <option value="America/Chicago">Central Time (CT)</option>
-                            <option value="America/Denver">Mountain Time (MT)</option>
-                            <option value="America/Los_Angeles">Pacific Time (PT)</option>
-                            <option value="Europe/London">London (GMT)</option>
-                            <option value="Europe/Paris">Paris (CET)</option>
-                            <option value="Asia/Kolkata">India (IST)</option>
-                            <option value="Asia/Singapore">Singapore (SGT)</option>
-                            <option value="Asia/Tokyo">Tokyo (JST)</option>
-                            <option value="Australia/Sydney">Sydney (AEDT)</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Tax Location/Establishment
-                          </label>
-                          <input
-                            type="text"
-                            value={location.taxLocation}
-                            onChange={(e) =>
-                              updateLocation(location.id, "taxLocation", e.target.value)
-                            }
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                            placeholder="Specific taxing jurisdiction"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            GST Registration (Optional)
-                          </label>
-                          <input
-                            type="text"
-                            value={location.gst}
-                            onChange={(e) =>
-                              updateLocation(location.id, "gst", e.target.value)
-                            }
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                            placeholder="Enter GST number"
-                          />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* HR & Payroll Structure */}
-        {activeTab === "hrPayroll" && (
-          <div className="grid grid-cols-1 gap-6">
-            {/* Info Panel */}
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <Calendar className="w-5 h-5 text-orange-600 mt-0.5" />
-                <div>
-                  <h4 className="font-semibold text-orange-900 text-sm mb-1">
-                    HR & Payroll Structure
-                  </h4>
-                  <p className="text-sm text-orange-700">
-                    Configure payroll and HR settings that connect employees to the legal entity for pay and reporting. Define working schedules and public holidays.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Payroll Configuration</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Payroll Statutory Unit (PSU)
-                    </label>
-                    <input
-                      type="text"
-                      value={companyData.payrollStatutoryUnit}
-                      onChange={(e) =>
-                        setCompanyData({ ...companyData, payrollStatutoryUnit: e.target.value })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                      placeholder="Entity responsible for paying employees"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Entity that pays employees and submits tax/social security reports
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Legal Employer
-                    </label>
-                    <input
-                      type="text"
-                      value={companyData.legalEmployer}
-                      onChange={(e) =>
-                        setCompanyData({ ...companyData, legalEmployer: e.target.value })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                      placeholder="Entity that signs employment contracts"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Legislative Data Group (LDG)
-                    </label>
-                    <input
-                      type="text"
-                      value={companyData.legislativeDataGroup}
-                      onChange={(e) =>
-                        setCompanyData({ ...companyData, legislativeDataGroup: e.target.value })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                      placeholder="Payroll information grouping"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Contains currency, tax rules, and pension types
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Pay Frequency <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={companyData.payFrequency}
-                      onChange={(e) =>
-                        setCompanyData({ ...companyData, payFrequency: e.target.value })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                    >
-                      <option value="Weekly">Weekly</option>
-                      <option value="Bi-weekly">Bi-weekly</option>
-                      <option value="Semi-monthly">Semi-monthly</option>
-                      <option value="Monthly">Monthly</option>
-                    </select>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Working Calendar & Schedule</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Standard Working Hours per Week
-                    </label>
-                    <input
-                      type="number"
-                      value={companyData.workingCalendar.standardHours}
-                      onChange={(e) =>
-                        setCompanyData({
-                          ...companyData,
-                          workingCalendar: {
-                            ...companyData.workingCalendar,
-                            standardHours: parseInt(e.target.value),
-                          },
-                        })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                      min="0"
-                      max="168"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
-                      Working Days
-                    </label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {[
-                        "Monday",
-                        "Tuesday",
-                        "Wednesday",
-                        "Thursday",
-                        "Friday",
-                        "Saturday",
-                        "Sunday",
-                      ].map((day) => (
-                        <label key={day} className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={companyData.workingCalendar.workingDays.includes(day)}
-                            onChange={(e) => {
-                              const days = e.target.checked
-                                ? [...companyData.workingCalendar.workingDays, day]
-                                : companyData.workingCalendar.workingDays.filter((d) => d !== day);
-                              setCompanyData({
-                                ...companyData,
-                                workingCalendar: {
-                                  ...companyData.workingCalendar,
-                                  workingDays: days,
-                                },
-                              });
-                            }}
-                            className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-600"
-                          />
-                          <span className="text-sm text-gray-700">{day}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Public Holidays
-                    </label>
-                    <textarea
-                      value={companyData.workingCalendar.publicHolidays.join("\n")}
-                      onChange={(e) =>
-                        setCompanyData({
-                          ...companyData,
-                          workingCalendar: {
-                            ...companyData.workingCalendar,
-                            publicHolidays: e.target.value.split("\n"),
-                          },
-                        })
-                      }
-                      rows={6}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-                      placeholder="Enter each holiday on a new line&#10;e.g., New Year's Day - Jan 1&#10;Independence Day - Jul 4&#10;Thanksgiving - Nov 23&#10;Christmas - Dec 25"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Enter each public holiday on a new line
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+      <div className="min-h-[500px]">
+        <CompanyStructureForm 
+          companyData={companyData}
+          setCompanyData={setCompanyData}
+          updateField={updateField}
+          activeTab={activeTab}
+          isReadOnly={isReadOnly}
+          addLocation={addLocation}
+          updateLocation={updateLocation}
+          removeLocation={removeLocation}
+        />
       </div>
 
       {/* Footer Actions */}
-      <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-200">
-        <Button variant="outline" onClick={() => navigate("/company-structure")}>
-          Cancel
-        </Button>
-        <Button onClick={handleSave} disabled={isSaving} className="gap-2">
-          <Save className="w-4 h-4" />
-          {isSaving ? "Saving..." : "Save Changes"}
-        </Button>
-      </div>
+      {!isReadOnly && (
+        <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-200">
+          <Button variant="outline" onClick={() => navigate("/company-structure")}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={isSaving} className="gap-2">
+            <Save className="w-4 h-4" />
+            {isSaving ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

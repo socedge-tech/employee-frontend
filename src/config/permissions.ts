@@ -29,6 +29,10 @@ export const rolePermissions: PermissionMap = {
     PermissionVal.VIEW_ALL_PAYROLL,
     PermissionVal.MANAGE_PAYROLL,
     PermissionVal.PROCESS_PAYROLL,
+    PermissionVal.VIEW_CRM,
+    PermissionVal.MANAGE_CRM,
+    PermissionVal.VIEW_EMAIL_MANAGEMENT,
+    PermissionVal.VIEW_NOTIFY_MANAGEMENT,
     PermissionVal.MANAGE_SYSTEM_SETTINGS,
   ],
   
@@ -55,6 +59,18 @@ export const rolePermissions: PermissionMap = {
     PermissionVal.VIEW_ALL_PAYROLL,
     PermissionVal.MANAGE_PAYROLL,
     PermissionVal.PROCESS_PAYROLL,
+    PermissionVal.VIEW_CRM,
+    PermissionVal.VIEW_SYSTEM_SETTINGS,
+  ],
+  
+  [UserRoleVal.FINANCE]: [
+    PermissionVal.VIEW_COMPANY_STRUCTURE,
+    PermissionVal.VIEW_ALL_EMPLOYEES,
+    PermissionVal.VIEW_OWN_PROFILE,
+    PermissionVal.VIEW_ALL_PAYROLL,
+    PermissionVal.MANAGE_PAYROLL,
+    PermissionVal.PROCESS_PAYROLL,
+    PermissionVal.VIEW_CRM,
     PermissionVal.VIEW_SYSTEM_SETTINGS,
   ],
   
@@ -122,6 +138,9 @@ export const navItemPermissions: Record<string, Permission[]> = {
   '/learning': [], // Accessible to all
   '/performance': [PermissionVal.VIEW_ALL_REVIEWS, PermissionVal.VIEW_TEAM_REVIEWS, PermissionVal.VIEW_OWN_REVIEWS],
   '/engagement': [PermissionVal.VIEW_ALL_SURVEYS, PermissionVal.CREATE_SURVEYS],
+  '/crm': [PermissionVal.VIEW_CRM],
+  '/email-management': [PermissionVal.VIEW_EMAIL_MANAGEMENT],
+  '/notify-management': [PermissionVal.VIEW_NOTIFY_MANAGEMENT],
   '/settings': [PermissionVal.MANAGE_SYSTEM_SETTINGS, PermissionVal.VIEW_SYSTEM_SETTINGS],
 };
 
