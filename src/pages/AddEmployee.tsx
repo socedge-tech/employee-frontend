@@ -9,7 +9,6 @@ import type { Role } from "../api/roles.ts";
 import { toast } from "sonner";
 import { RoleGate } from "../components/Auth/RoleGate";
 import { Permission } from "../types/rbac";
-import { usePermissions } from "../hooks/usePermissions";
 
 interface FamilyMember {
   name: string;
@@ -121,25 +120,39 @@ export function AddEmployee() {
   const [rolesList, setRolesList] = useState<Role[]>([]);
   const [managersList, setManagersList] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isFetchingEmployee, setIsFetchingEmployee] = useState(false);
+
+  const [locationsList, setLocationsList] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [deps, emps, roles] = await Promise.all([
+        const { getOrganizations } = await import("../api/organizations");
+        const [deps, emps, roles, orgs] = await Promise.all([
           getDepartments(),
           getEmployees(),
-          getRoles()
+          getRoles(),
+          getOrganizations()
         ]);
         setDepartmentsList(deps);
         setManagersList(emps);
         setRolesList(roles);
+
+        // Extract locations from organizations/branches
+        const locations = new Set<string>();
+        (orgs || []).forEach((org: any) => {
+          (org.branches || org.branch || []).forEach((b: any) => {
+            if (b.branch_name) locations.add(b.branch_name);
+            if (b.location_name) locations.add(b.location_name);
+          });
+          if (org.city) locations.add(org.city);
+        });
+        setLocationsList(Array.from(locations).filter(Boolean));
         
         // If ID exists, fetch employee data
         if (id) {
-          setIsFetchingEmployee(true);
+          setIsSubmitting(true);
           const emp = await getEmployee(parseInt(id, 10));
-          const details = emp.details || {};
+          const details: any = emp.details || {};
           
           setFormData({
             firstName: details.first_name || "",
@@ -212,7 +225,7 @@ export function AddEmployee() {
         console.error("Failed to load initial data", error);
         toast.error("Failed to load departments and managers");
       } finally {
-        setIsFetchingEmployee(false);
+        setIsSubmitting(false);
       }
     };
     fetchInitialData();
@@ -958,12 +971,9 @@ export function AddEmployee() {
                           required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         >
-                          <option value="">Select Location</option>
-                          <option value="San Francisco">San Francisco, CA</option>
-                          <option value="New York">New York, NY</option>
-                          <option value="London">London, UK</option>
-                          <option value="Chicago">Chicago, IL</option>
-                          <option value="Austin">Austin, TX</option>
+                          {locationsList.map(loc => (
+                            <option key={loc} value={loc}>{loc}</option>
+                          ))}
                           <option value="Remote">Remote</option>
                         </select>
                       </div>
@@ -997,7 +1007,9 @@ export function AddEmployee() {
                         >
                           <option value="">Select Manager</option>
                           {managersList.map(mgr => (
-                            <option key={mgr.id} value={mgr.id}>{mgr.firstName} {mgr.lastName}</option>
+                            <option key={mgr.id} value={mgr.id}>
+                              {mgr.details?.first_name} {mgr.details?.last_name || mgr.username}
+                            </option>
                           ))}
                         </select>
                       </div>

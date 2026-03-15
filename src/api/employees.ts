@@ -48,11 +48,13 @@ export interface Employee {
     };
     [key: string]: any;
   };
+  roles?: any[];
+  [key: string]: any;
 }
 
-export const getEmployees = async (): Promise<Employee[]> => {
+export const getEmployees = async (params: any = {}): Promise<Employee[]> => {
   try {
-    const response = await axiosInstance.get("/employees");
+    const response = await axiosInstance.get("/employees", { params });
     return response.data.data;
   } catch (error: any) {
     throw error.response?.data || { message: "Failed to fetch employees" };

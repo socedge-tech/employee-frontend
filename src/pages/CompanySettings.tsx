@@ -41,10 +41,7 @@ interface CompanyData {
   businessUnits: string[];
   divisions: string[];
   costCenters: string[];
-  jobArchitecture: {
-    enabled: boolean;
-    levels: string[];
-  };
+
 
   // Geographical/Location Structure
   locations: Array<{
@@ -102,10 +99,7 @@ const initialCompanyData: CompanyData = {
   businessUnits: [],
   divisions: [],
   costCenters: [],
-  jobArchitecture: {
-    enabled: false,
-    levels: [],
-  },
+
   locations: [],
   payrollStatutoryUnit: "",
   legalEmployer: "",
@@ -165,41 +159,6 @@ export function CompanySettings() {
   }, [companyData, departmentsCount]);
 
   useEffect(() => {
-    // Load saved company data from localStorage
-    const savedData = localStorage.getItem("companyData");
-    if (savedData) {
-      try {
-        const parsed = JSON.parse(savedData);
-        // Map data from CompanyStructure format (singular/string) to CompanySettings format (plural/array)
-        const mappedData = {
-          ...initialCompanyData,
-          ...parsed,
-          businessUnits: parsed.businessUnits || (parsed.businessUnit ? [parsed.businessUnit] : []),
-          costCenters: parsed.costCenters || (parsed.costCenter ? [parsed.costCenter] : []),
-          locations: parsed.locations || [],
-          workingCalendar: parsed.workingCalendar || initialCompanyData.workingCalendar,
-          taxRegistrationNumbers: parsed.taxRegistrationNumbers || {
-            pan: parsed.pan || "",
-            tin: parsed.tin || "",
-            sin: parsed.sin || "",
-            ein: parsed.ein || "",
-            siret: parsed.siret || "",
-            other: parsed.otherTaxId || "",
-          },
-          legalAddress: parsed.legalAddress || {
-            street: parsed.street || parsed.address || "",
-            city: parsed.city || "",
-            state: parsed.state || "",
-            zipCode: parsed.zip || parsed.zipCode || "",
-            country: parsed.country || "",
-          }
-        };
-        setCompanyData(mappedData);
-      } catch (e) {
-        console.error("Failed to parse localStorage companyData", e);
-      }
-    }
-
     const loadOrg = async () => {
       try {
         const orgs = await getOrganizations();
@@ -235,10 +194,7 @@ export function CompanySettings() {
             businessUnits: mainOrg.business_unit ? mainOrg.business_unit.split(",").map((i: string) => i.trim()) : [],
             divisions: mainOrg.division ? mainOrg.division.split(",").map((i: string) => i.trim()) : [],
             costCenters: mainOrg.cost_center ? mainOrg.cost_center.split(",").map((i: string) => i.trim()) : [],
-            jobArchitecture: {
-              enabled: mainOrg.job_architecture || false,
-              levels: [],
-            },
+
             locations: (mainOrg.branches || mainOrg.branch || []).map((branch: any) => ({
               id: (branch.id || Date.now()).toString(),
               locationCode: branch.location_code || branch.branch_code || "",
@@ -260,7 +216,7 @@ export function CompanySettings() {
             payFrequency: mainOrg.pay_frequency || "Monthly",
             workingCalendar: {
               standardHours: mainOrg.standard_working_hours_per_week || 40,
-              workingDays: mainOrg.working_days || ["Mon", "Tue", "Wed", "Thu", "Fri"],
+              workingDays: mainOrg.working_days || ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
               publicHolidays: mainOrg.public_holidays || [],
             },
           });
@@ -302,48 +258,86 @@ export function CompanySettings() {
     // Dynamic Validation based on Country
     const ctry = companyData.legalAddress.country;
     if (ctry === "India") {
-      const pan = companyData.taxRegistrationNumbers.pan || "";
-      if (!pan || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)) {
-        toast.error("Invalid PAN Format", { description: "Please enter a valid PAN (e.g., ABCDE1234F)." });
+      // Trim + uppercase so whitespace/case never causes false failures
+      const pan = (companyData.taxRegistrationNumbers.pan || "").trim().toUpperCase();
+      if (!pan) {
+        toast.error("PAN Required", { description: "Please enter your Permanent Account Number (PAN)." });
         setActiveTab("legal");
         return;
+      }
+      // Soft format warning — does NOT block save. Real PAN: 5 alpha + 4 digits + 1 alpha
+      if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)) {
+        toast.warning("PAN Format Notice", {
+          description: "The PAN entered doesn't match the standard format (e.g., ABCDE1234F). Saving anyway — please verify with your tax authority.",
+        });
       }
     } else if (ctry === "USA") {
-      const ein = companyData.taxRegistrationNumbers.ein || "";
-      if (!ein || !/^\d{2}-\d{7}$/.test(ein)) {
-        toast.error("Invalid EIN Format", { description: "Please enter a valid EIN (e.g., 12-3456789)." });
+      const ein = (companyData.taxRegistrationNumbers.ein || "").trim();
+      if (!ein) {
+        toast.error("EIN Required", { description: "Please enter your Employer Identification Number (EIN)." });
         setActiveTab("legal");
         return;
       }
+      if (!/^\d{2}-\d{7}$/.test(ein)) {
+        toast.warning("EIN Format Notice", {
+          description: "EIN should be in the format 12-3456789. Saving anyway.",
+        });
+      }
     } else if (ctry === "France") {
-      const siret = companyData.taxRegistrationNumbers.siret || "";
-      if (!siret || !/^\d{14}$/.test(siret.replace(/\s/g, ""))) {
-        toast.error("Invalid SIRET Format", { description: "Please enter a valid 14-digit SIRET number." });
+      const siret = (companyData.taxRegistrationNumbers.siret || "").trim().replace(/\s/g, "");
+      if (!siret) {
+        toast.error("SIRET Required", { description: "Please enter your SIRET number." });
         setActiveTab("legal");
         return;
+      }
+      if (!/^\d{14}$/.test(siret)) {
+        toast.warning("SIRET Format Notice", {
+          description: "SIRET should be 14 digits. Saving anyway.",
+        });
       }
     }
 
     setIsSaving(true);
-    // Save to localStorage
-    localStorage.setItem("companyData", JSON.stringify(companyData));
 
-    // Save to API
+    // Reuse `ctry` from validation above to derive the active tax key and
+    // keep the flat tax_registration_number column in sync.
+    // Also normalize (trim + uppercase) the active tax field before saving.
+    const activeTaxKey =
+      ctry === "India" ? "pan" :
+      ctry === "USA" ? "ein" :
+      ctry === "France" ? "siret" : "other";
+
+    // Normalize the stored value before sending to the API
+    const normalizedTaxNumbers = {
+      ...companyData.taxRegistrationNumbers,
+      pan:   (companyData.taxRegistrationNumbers.pan   || "").trim().toUpperCase(),
+      ein:   (companyData.taxRegistrationNumbers.ein   || "").trim().toUpperCase(),
+      siret: (companyData.taxRegistrationNumbers.siret || "").trim(),
+      tin:   (companyData.taxRegistrationNumbers.tin   || "").trim().toUpperCase(),
+    };
+    const primaryTaxId = (normalizedTaxNumbers[activeTaxKey as keyof typeof normalizedTaxNumbers] || "").trim();
+
+    // Build the API payload.
+    // IMPORTANT: The backend Zod validator for `branch` expects:
+    //   branch_name, branch_code, address (street), zip (not zip_code)
+    //   time_zone, tax_location, city, state, country
     const apiPayload = {
       entity_name: companyData.legalEntityName,
       legal_entity_name: companyData.legalEntityName,
       company_code: companyData.companyCode,
       company_type: companyData.companyType,
-      tax_registration_number: companyData.taxRegistrationNumber,
+      // Flat column stays in sync with the active country's tax ID
+      tax_registration_number: primaryTaxId,
       jurisdiction: companyData.jurisdiction,
       currency: companyData.currency,
       fiscal_year_end: companyData.fiscalYearEnd,
-      pan: companyData.taxRegistrationNumbers.pan,
-      tin: companyData.taxRegistrationNumbers.tin,
-      sin: companyData.taxRegistrationNumbers.sin,
-      ein: companyData.taxRegistrationNumbers.ein,
-      siret: companyData.taxRegistrationNumbers.siret,
-      other_tax_id: companyData.taxRegistrationNumbers.other,
+      // Individual per-country tax columns — send normalized (trimmed/uppercased) values
+      pan:          normalizedTaxNumbers.pan   || "",
+      tin:          normalizedTaxNumbers.tin   || "",
+      sin:          (companyData.taxRegistrationNumbers.sin   || "").trim(),
+      ein:          normalizedTaxNumbers.ein   || "",
+      siret:        normalizedTaxNumbers.siret || "",
+      other_tax_id: (companyData.taxRegistrationNumbers.other || "").trim(),
       address: companyData.legalAddress.street,
       legal_address: companyData.legalAddress.street,
       city: companyData.legalAddress.city,
@@ -353,7 +347,7 @@ export function CompanySettings() {
       business_unit: (companyData.businessUnits || []).filter(v => v && v.trim()).join(", "),
       division: (companyData.divisions || []).filter(v => v && v.trim()).join(", "),
       cost_center: (companyData.costCenters || []).filter(v => v && v.trim()).join(", "),
-      job_architecture: companyData.jobArchitecture.enabled,
+
       payroll_statutory_unit: companyData.payrollStatutoryUnit,
       legal_employer: companyData.legalEmployer,
       legislative_data_group: companyData.legislativeDataGroup,
@@ -361,30 +355,26 @@ export function CompanySettings() {
       standard_working_hours_per_week: companyData.workingCalendar.standardHours,
       working_days: companyData.workingCalendar.workingDays,
       public_holidays: companyData.workingCalendar.publicHolidays.filter(v => v.trim()),
-      branches: companyData.locations.map(loc => ({
-        location_name: loc.locationName,
-        location_code: loc.locationCode,
-        street_address: loc.address.street,
-        city: loc.address.city,
-        state: loc.address.state,
-        zip_code: loc.address.zipCode,
-        country: loc.address.country,
-        time_zone: loc.timeZone,
-        tax_location: loc.taxLocation,
-        gst: loc.gst
-      })),
-      branch: companyData.locations.map(loc => ({
-        location_name: loc.locationName,
-        location_code: loc.locationCode,
-        street_address: loc.address.street,
-        city: loc.address.city,
-        state: loc.address.state,
-        zip_code: loc.address.zipCode,
-        country: loc.address.country,
-        time_zone: loc.timeZone,
-        tax_location: loc.taxLocation,
-        gst: loc.gst
-      }))
+      // `branch` key with field names that match the backend Zod validator
+      branch: companyData.locations.map(loc => {
+        const numId = parseInt(loc.id, 10);
+        // Date.now() is 13 digits. Real DB IDs are much smaller.
+        const isDbId = !isNaN(numId) && numId < 1000000000;
+        
+        return {
+          ...(isDbId ? { id: numId } : {}),
+          branch_name: loc.locationName,
+          branch_code: loc.locationCode,
+          address: loc.address.street,
+          city: loc.address.city,
+          state: loc.address.state,
+          zip: loc.address.zipCode,
+          country: loc.address.country,
+          time_zone: loc.timeZone,
+          tax_location: loc.taxLocation,
+          gst: loc.gst || "",
+        };
+      }),
     };
 
     try {

@@ -1,19 +1,19 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { getEmployees, deleteEmployee, type Employee } from "../api/employees";
 import { toast } from "sonner";
 
 interface Filters {
-  departments: string[];
-  roles: string[];
-  locations: string[];
-  statuses: string[];
+  department: string[];
+  role: string[];
+  location: string[];
+  status: string[];
 }
 
 const DEFAULT_FILTERS: Filters = {
-  departments: [],
-  roles: [],
-  locations: [],
-  statuses: [],
+  department: [],
+  role: [],
+  location: [],
+  status: [],
 };
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -46,7 +46,7 @@ export function useEmployees() {
   const [hoveredId, setHoveredId] = useState<number | null>(null);
 
   // ──────────────────────────────────────────────
-  // Filter dropdown ref (for click-outside close)
+  // Filter Dropdown state
   // ──────────────────────────────────────────────
   const [showFilters, setShowFilters] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
@@ -57,14 +57,20 @@ export function useEmployees() {
   const fetchEmployees = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await getEmployees();
+      // Map multi-select arrays to comma-separated strings for the backend
+      const activeFilters = Object.fromEntries(
+        Object.entries(filters)
+          .filter(([_, v]) => v && v.length > 0)
+          .map(([k, v]) => [k, v.join(",")])
+      );
+      const data = await getEmployees(activeFilters);
       setEmployees(data ?? []);
     } catch {
       toast.error("Failed to load employees. Please try again.");
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [filters]);
 
   useEffect(() => {
     fetchEmployees();
@@ -87,18 +93,67 @@ export function useEmployees() {
   }, [showFilters]);
 
   // ──────────────────────────────────────────────
-  // Derived filter options from live data
+  // Filter Options (Dynamic)
   // ──────────────────────────────────────────────
-  const filterOptions = useMemo(() => ({
-    departments: [...new Set(employees.map(e => e.details?.department?.department_name || "Unassigned"))].filter(Boolean),
-    roles: [...new Set(employees.map(e => e.details?.job_role || "Associate"))].filter(Boolean),
-    locations: [...new Set(employees.map(e => e.details?.work_location || "Remote"))].filter(Boolean),
-    statuses: ["Active", "Inactive"],
-  }), [employees]);
+  const [dynOptions, setDynOptions] = useState<{ 
+    departments: string[], 
+    roles: string[],
+    locations: string[]
+  }>({
+    departments: [],
+    roles: [],
+    locations: []
+  });
 
-  const hasActiveFilters = useMemo(() =>
-    Object.values(filters).some(arr => arr.length > 0),
-    [filters]
+  const fetchOptions = useCallback(async () => {
+    try {
+      const { getDepartments } = await import("../api/departments");
+      const { getRoles } = await import("../api/roles");
+      const { getOrganizations } = await import("../api/organizations");
+
+      const [deps, roles, orgs] = await Promise.all([
+        getDepartments(),
+        getRoles(),
+        getOrganizations()
+      ]);
+
+      // Extract unique branch/location names
+      const locations = new Set<string>();
+      (orgs || []).forEach(org => {
+        (org.branches || org.branch || []).forEach((b: any) => {
+          if (b.branch_name) locations.add(b.branch_name);
+          if (b.location_name) locations.add(b.location_name);
+        });
+        if (org.city) locations.add(org.city);
+        if (org.country) locations.add(org.country);
+      });
+
+      setDynOptions({
+        departments: deps.map(d => d.department_name),
+        roles: roles.map(r => r.role_name),
+        locations: Array.from(locations).filter(Boolean) as string[]
+      });
+    } catch (error) {
+      console.error("Failed to fetch filter options", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchOptions();
+  }, [fetchOptions]);
+
+  const filterOptions = useMemo(() => {
+    return {
+      departments: dynOptions.departments,
+      roles: dynOptions.roles,
+      locations: dynOptions.locations.length > 0 ? dynOptions.locations : ["Remote"],
+      statuses: ["Active", "Inactive", "On Leave"],
+    };
+  }, [dynOptions]);
+
+  const hasActiveFilters = useMemo(
+    () => Object.values(filters).some((val) => val.length > 0),
+    [filters],
   );
 
   // ──────────────────────────────────────────────
@@ -107,26 +162,28 @@ export function useEmployees() {
   const filteredEmployees = useMemo(() => {
     const search = searchTerm.toLowerCase();
 
-    return employees
-      .filter(emp => {
-        const name = `${emp.details?.first_name ?? ""} ${emp.details?.last_name ?? ""}`.toLowerCase();
-        const email = (emp.email ?? "").toLowerCase();
-        const dept = (emp.details?.department?.department_name ?? "").toLowerCase();
-        return name.includes(search) || email.includes(search) || dept.includes(search);
-      })
-      .filter(emp =>
-        (!filters.departments.length || filters.departments.includes(emp.details?.department?.department_name || "Unassigned")) &&
-        (!filters.roles.length || filters.roles.includes(emp.details?.job_role || "Associate")) &&
-        (!filters.locations.length || filters.locations.includes(emp.details?.work_location || "Remote")) &&
-        (!filters.statuses.length || filters.statuses.includes(emp.status ? "Active" : "Inactive"))
+    return employees.filter((emp) => {
+      const name =
+        `${emp.details?.first_name ?? ""} ${emp.details?.last_name ?? ""}`.toLowerCase();
+      const email = (emp.email ?? "").toLowerCase();
+      const dept = (
+        emp.details?.department?.department_name ?? ""
+      ).toLowerCase();
+      return (
+        name.includes(search) || email.includes(search) || dept.includes(search)
       );
-  }, [employees, searchTerm, filters]);
+    });
+  }, [employees, searchTerm]);
 
   const totalPages = Math.ceil(filteredEmployees.length / pageSize);
 
-  const paginatedEmployees = useMemo(() =>
-    filteredEmployees.slice((currentPage - 1) * pageSize, currentPage * pageSize),
-    [filteredEmployees, currentPage, pageSize]
+  const paginatedEmployees = useMemo(
+    () =>
+      filteredEmployees.slice(
+        (currentPage - 1) * pageSize,
+        currentPage * pageSize,
+      ),
+    [filteredEmployees, currentPage, pageSize],
   );
 
   const paginationInfo = {
@@ -152,25 +209,43 @@ export function useEmployees() {
       return Array.from({ length: totalPages }, (_, i) => i + 1);
     }
     if (currentPage <= 3) return [1, 2, 3, 4, "...", totalPages];
-    if (currentPage >= totalPages - 2) return [1, "...", totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
-    return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
+    if (currentPage >= totalPages - 2)
+      return [
+        1,
+        "...",
+        totalPages - 3,
+        totalPages - 2,
+        totalPages - 1,
+        totalPages,
+      ];
+    return [
+      1,
+      "...",
+      currentPage - 1,
+      currentPage,
+      currentPage + 1,
+      "...",
+      totalPages,
+    ];
   }, [currentPage, totalPages]);
 
   // ──────────────────────────────────────────────
   // Selection
   // ──────────────────────────────────────────────
-  const isAllSelected = filteredEmployees.length > 0 && selectedIds.size === filteredEmployees.length;
+  const isAllSelected =
+    filteredEmployees.length > 0 &&
+    selectedIds.size === filteredEmployees.length;
 
   const toggleSelectAll = useCallback(() => {
-    setSelectedIds(prev =>
+    setSelectedIds((prev) =>
       prev.size === filteredEmployees.length
         ? new Set()
-        : new Set(filteredEmployees.map(e => e.id))
+        : new Set(filteredEmployees.map((e) => e.id)),
     );
   }, [filteredEmployees]);
 
   const toggleSelectEmployee = useCallback((id: number) => {
-    setSelectedIds(prev => {
+    setSelectedIds((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
@@ -179,38 +254,50 @@ export function useEmployees() {
 
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
-  // ──────────────────────────────────────────────
-  // Filter actions
-  // ──────────────────────────────────────────────
   const toggleFilter = useCallback((type: keyof Filters, value: string) => {
-    setFilters(prev => ({
+    setFilters((prev) => ({
       ...prev,
       [type]: prev[type].includes(value)
-        ? prev[type].filter(v => v !== value)
+        ? prev[type].filter((v) => v !== value)
         : [...prev[type], value],
     }));
   }, []);
 
+  // ──────────────────────────────────────────────
+  // Clear Actions
+  // ──────────────────────────────────────────────
   const clearFilters = useCallback(() => setFilters(DEFAULT_FILTERS), []);
 
   // ──────────────────────────────────────────────
   // Delete
   // ──────────────────────────────────────────────
-  const handleDelete = useCallback(async (id: number) => {
-    if (!window.confirm("Are you sure you want to delete this employee? This action cannot be undone.")) return;
+  const handleDelete = useCallback(
+    async (id: number) => {
+      if (
+        !window.confirm(
+          "Are you sure you want to delete this employee? This action cannot be undone.",
+        )
+      )
+        return;
 
-    setIsDeleting(true);
-    try {
-      await deleteEmployee(id);
-      toast.success("Employee deleted successfully");
-      setSelectedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
-      await fetchEmployees();
-    } catch {
-      toast.error("Failed to delete employee. Please try again.");
-    } finally {
-      setIsDeleting(false);
-    }
-  }, [fetchEmployees]);
+      setIsDeleting(true);
+      try {
+        await deleteEmployee(id);
+        toast.success("Employee deleted successfully");
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+        await fetchEmployees();
+      } catch {
+        toast.error("Failed to delete employee. Please try again.");
+      } finally {
+        setIsDeleting(false);
+      }
+    },
+    [fetchEmployees],
+  );
 
   return {
     // Data
@@ -225,6 +312,7 @@ export function useEmployees() {
     searchTerm,
     setSearchTerm,
     filters,
+    setFilters,
     toggleFilter,
     clearFilters,
     filterOptions,

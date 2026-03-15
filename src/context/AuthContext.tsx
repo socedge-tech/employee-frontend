@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import type { User, UserRole } from '../types/rbac';
 import { UserRole as UserRoleVal } from '../types/rbac';
@@ -12,56 +12,9 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<any>;
   verifyOtp: (email: string, otp: string) => Promise<void>;
   logout: () => void;
-  switchRole: (role: UserRole) => void; // For demo purposes
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// Mock users for demonstration
-const mockUsers: Record<string, User> = {
-  'superadmin@company.com': {
-    id: 'sa-001',
-    name: 'Sarah Chen',
-    email: 'superadmin@company.com',
-    role: UserRoleVal.SUPER_ADMIN,
-    departmentId: 'dept-executive',
-    employeeId: 'EMP-001',
-    position: 'Chief Executive Officer',
-    avatar: 'https://i.pravatar.cc/150?img=1',
-  },
-  'admin@company.com': {
-    id: 'admin-001',
-    name: 'Michael Rodriguez',
-    email: 'admin@company.com',
-    role: UserRoleVal.ADMIN,
-    departmentId: 'dept-hr',
-    employeeId: 'EMP-002',
-    position: 'HR Director',
-    avatar: 'https://i.pravatar.cc/150?img=33',
-  },
-  'manager@company.com': {
-    id: 'mgr-001',
-    name: 'Emily Johnson',
-    email: 'manager@company.com',
-    role: UserRoleVal.MANAGER,
-    departmentId: 'dept-engineering',
-    managerId: 'admin-001',
-    employeeId: 'EMP-003',
-    position: 'Engineering Manager',
-    avatar: 'https://i.pravatar.cc/150?img=5',
-  },
-  'employee@company.com': {
-    id: 'emp-001',
-    name: 'David Kim',
-    email: 'employee@company.com',
-    role: UserRoleVal.EMPLOYEE,
-    departmentId: 'dept-engineering',
-    managerId: 'mgr-001',
-    employeeId: 'EMP-004',
-    position: 'Software Engineer',
-    avatar: 'https://i.pravatar.cc/150?img=12',
-  },
-};
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -90,8 +43,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       localStorage.setItem('user', JSON.stringify(user));
     } else {
       localStorage.removeItem('user');
-      // Note: We don't remove token here because logout() handles that.
-      // This effect is mainly for ensuring the object in storage is up-to-date if setUser is called.
     }
   }, [user]);
 
@@ -157,21 +108,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setUser(null);
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     localStorage.removeItem('pendingEmail');
     sessionStorage.removeItem('is_session_active');
-  };
-
-  const switchRole = (role: UserRole) => {
-    // For demo purposes - switch between roles
-    const userByRole = Object.values(mockUsers).find(u => u.role === role);
-    if (userByRole) {
-      setUser(userByRole);
-    }
-  };
+  }, []);
 
   const value: AuthContextType = {
     user,
@@ -180,7 +123,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     login,
     verifyOtp: verifyOtpStep,
     logout,
-    switchRole,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

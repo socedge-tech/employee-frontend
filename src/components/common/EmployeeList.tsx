@@ -1,7 +1,7 @@
 import * as React from "react";
-import { 
-  Pencil, 
-  Trash2, 
+import {
+  Pencil,
+  Trash2,
   Eye
 } from "lucide-react";
 import type { Employee } from "../../api/employees";
@@ -32,14 +32,14 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
   onToggleSelectAll
 }) => {
   const [hoveredRowId, setHoveredRowId] = React.useState<number | string | null>(null);
-  
+
   const canManage = ["super admin", "admin", "hr manager"].includes(currentUserRole.toLowerCase());
 
   if (isLoading) {
     return (
       <div className="w-full flex flex-col items-center justify-center py-24 bg-white rounded-3xl border border-gray-100 shadow-sm">
         <div className="relative">
-           <div className="w-12 h-12 border-4 border-indigo-50 border-t-indigo-500 rounded-full animate-spin"></div>
+          <div className="w-12 h-12 border-4 border-indigo-50 border-t-indigo-500 rounded-full animate-spin"></div>
         </div>
         <p className="mt-4 text-sm font-bold text-gray-500 tracking-tight">Syncing Workforce Data...</p>
       </div>
@@ -49,8 +49,8 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
   const hasSelections = selectedIds.size > 0;
 
   const getStatusColor = (status: boolean) => {
-    return status 
-      ? "bg-emerald-50 text-emerald-700 border-emerald-100" 
+    return status
+      ? "bg-emerald-50 text-emerald-700 border-emerald-100"
       : "bg-gray-50 text-gray-500 border-gray-200";
   };
 
@@ -62,8 +62,8 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
             <tr className="bg-gray-50/50 border-b border-gray-100">
               <th className="pl-6 pr-3 py-5 w-14 text-left">
                 {(hasSelections || hoveredRowId !== null) && (
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     className="rounded-lg border-gray-300 text-indigo-600 focus:ring-indigo-500 h-5 w-5 cursor-pointer transition-all"
                     checked={employees.length > 0 && selectedIds.size === employees.length}
                     onChange={onToggleSelectAll}
@@ -82,12 +82,12 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
             {employees.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-6 py-20 text-center">
-                   <div className="flex flex-col items-center gap-3">
-                      <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center">
-                        <Eye className="w-6 h-6 text-gray-300" />
-                      </div>
-                      <p className="text-sm font-bold text-gray-400">No workforce records found</p>
-                   </div>
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center">
+                      <Eye className="w-6 h-6 text-gray-300" />
+                    </div>
+                    <p className="text-sm font-bold text-gray-400">No workforce records found</p>
+                  </div>
                 </td>
               </tr>
             ) : (
@@ -99,8 +99,8 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
                 const showActions = isHovered && !hasSelections;
 
                 return (
-                  <tr 
-                    key={employee.id} 
+                  <tr
+                    key={employee.id}
                     className={`transition-all duration-200 cursor-pointer group ${isSelected ? 'bg-indigo-50/40' : 'hover:bg-gray-50/50'}`}
                     onMouseEnter={() => setHoveredRowId(employee.id)}
                     onMouseLeave={() => setHoveredRowId(null)}
@@ -108,8 +108,8 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
                   >
                     <td className="pl-6 pr-3 py-5" onClick={(e) => e.stopPropagation()}>
                       {showCheckbox ? (
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           className="rounded-lg border-gray-300 text-indigo-600 focus:ring-indigo-500 h-5 w-5 cursor-pointer transition-all animate-in fade-in"
                           checked={isSelected}
                           onChange={() => onToggleSelect(employee.id)}
@@ -125,7 +125,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
                             {details?.first_name?.[0]}{details?.last_name?.[0]}
                           </div>
                           <div className={`absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center border-2 border-white shadow-sm`}>
-                             <div className={`w-1.5 h-1.5 rounded-full ${employee.status ? 'bg-emerald-500' : 'bg-gray-300'}`}></div>
+                            <div className={`w-1.5 h-1.5 rounded-full ${employee.status ? 'bg-emerald-500' : 'bg-gray-300'}`}></div>
                           </div>
                         </div>
                         <div className="min-w-0">
@@ -138,9 +138,9 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
                     </td>
                     <td className="px-6 py-5">
                       <span className="text-xs font-bold text-gray-600 truncate block uppercase tracking-tight">
-                        {details?.department?.department_name || 
-                         departments.find(d => d.id.toString() === details?.department_id?.toString())?.department_name || 
-                         "Operations"}
+                        {details?.department?.department_name ||
+                          departments.find(d => d.id.toString() === details?.department_id?.toString())?.department_name ||
+                          "Operations"}
                       </span>
                     </td>
                     <td className="px-6 py-5">
@@ -166,7 +166,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
                         </span>
                         {showActions && (
                           <div className="flex items-center gap-2 ml-4 animate-in slide-in-from-right-2 duration-300" onClick={(e) => e.stopPropagation()}>
-                            <button 
+                            <button
                               onClick={() => onView(employee)}
                               className="p-2 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white rounded-xl transition-all shadow-sm"
                               title="View Profile"
@@ -175,14 +175,14 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
                             </button>
                             {canManage && (
                               <>
-                                <button 
+                                <button
                                   onClick={() => onEdit(employee)}
                                   className="p-2 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white rounded-xl transition-all shadow-sm"
                                   title="Edit Records"
                                 >
                                   <Pencil className="w-4 h-4" />
                                 </button>
-                                <button 
+                                <button
                                   onClick={() => onDelete(employee.id)}
                                   className="p-2 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white rounded-xl transition-all shadow-sm"
                                   title="Terminate Access"

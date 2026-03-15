@@ -1,6 +1,15 @@
 import React from "react";
 import { Card, CardHeader, CardContent, CardTitle } from "../ui/card";
-import { Building2, Briefcase, MapPin, Calendar, Trash2, PlusCircle, Eye, Pencil } from "lucide-react";
+import {
+  Building2,
+  Briefcase,
+  MapPin,
+  Calendar,
+  Trash2,
+  PlusCircle,
+  Eye,
+  Pencil,
+} from "lucide-react";
 import { Button } from "../ui/button";
 
 interface CompanyStructureFormProps {
@@ -22,7 +31,7 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
   isReadOnly,
   addLocation,
   updateLocation,
-  removeLocation
+  removeLocation,
 }) => {
   if (activeTab === "legal") {
     return (
@@ -37,7 +46,8 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                   Legal Entity & Tax Information
                 </h4>
                 <p className="text-sm text-blue-700">
-                  Define the legally registered entity, which is critical for taxation and statutory compliance.
+                  Define the legally registered entity, which is critical for
+                  taxation and statutory compliance.
                 </p>
               </div>
             </div>
@@ -61,9 +71,15 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                 <input
                   type="text"
                   value={companyData.legalEntityName}
-                  onChange={(e) => !isReadOnly && setCompanyData({ ...companyData, legalEntityName: e.target.value })}
+                  onChange={(e) =>
+                    !isReadOnly &&
+                    setCompanyData({
+                      ...companyData,
+                      legalEntityName: e.target.value,
+                    })
+                  }
                   readOnly={isReadOnly}
-                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? 'bg-gray-50' : ''}`}
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
                   placeholder="Enter legal entity name"
                 />
               </div>
@@ -75,9 +91,15 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                 <input
                   type="text"
                   value={companyData.companyCode}
-                  onChange={(e) => !isReadOnly && setCompanyData({ ...companyData, companyCode: e.target.value })}
+                  onChange={(e) =>
+                    !isReadOnly &&
+                    setCompanyData({
+                      ...companyData,
+                      companyCode: e.target.value,
+                    })
+                  }
                   readOnly={isReadOnly}
-                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? 'bg-gray-50' : ''}`}
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
                   placeholder="Enter company code"
                 />
               </div>
@@ -88,41 +110,63 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                 </label>
                 <select
                   value={companyData.companyType}
-                  onChange={(e) => !isReadOnly && setCompanyData({ ...companyData, companyType: e.target.value })}
+                  onChange={(e) =>
+                    !isReadOnly &&
+                    setCompanyData({
+                      ...companyData,
+                      companyType: e.target.value,
+                    })
+                  }
                   disabled={isReadOnly}
-                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent bg-white ${isReadOnly ? 'bg-gray-100' : ''}`}
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent bg-white ${isReadOnly ? "bg-gray-100" : ""}`}
                 >
-                  <option value="" disabled>Select Company Type</option>
+                  <option value="" disabled>
+                    Select Company Type
+                  </option>
                   <option value="Private Limited">Private Limited</option>
                   <option value="Public Limited">Public Limited</option>
                   <option value="LLP">LLP</option>
                   <option value="Corporation">Corporation</option>
                   <option value="LLC">LLC</option>
-                  <option value="Sole Proprietorship">Sole Proprietorship</option>
+                  <option value="Sole Proprietorship">
+                    Sole Proprietorship
+                  </option>
                   <option value="Partnership">Partnership</option>
                   <option value="Other">Other</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Jurisdiction</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Jurisdiction
+                </label>
                 <input
                   type="text"
                   value={companyData.jurisdiction}
-                  onChange={(e) => !isReadOnly && setCompanyData({ ...companyData, jurisdiction: e.target.value })}
+                  onChange={(e) =>
+                    !isReadOnly &&
+                    setCompanyData({
+                      ...companyData,
+                      jurisdiction: e.target.value,
+                    })
+                  }
                   readOnly={isReadOnly}
-                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? 'bg-gray-50' : ''}`}
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
                   placeholder="e.g., Delaware, USA"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Currency <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Currency <span className="text-red-500">*</span>
+                </label>
                 <select
                   value={companyData.currency}
-                  onChange={(e) => !isReadOnly && updateField("currency", "", e.target.value)}
+                  onChange={(e) =>
+                    !isReadOnly && updateField("currency", "", e.target.value)
+                  }
                   disabled={isReadOnly}
-                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent bg-white ${isReadOnly ? 'bg-gray-100' : ''}`}
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent bg-white ${isReadOnly ? "bg-gray-100" : ""}`}
                 >
                   <option value="USD">USD - US Dollar</option>
                   <option value="EUR">EUR - Euro</option>
@@ -132,13 +176,18 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Fiscal Year End</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Fiscal Year End
+                </label>
                 <input
                   type="date"
                   value={companyData.fiscalYearEnd}
-                  onChange={(e) => !isReadOnly && updateField("fiscalYearEnd", "", e.target.value)}
+                  onChange={(e) =>
+                    !isReadOnly &&
+                    updateField("fiscalYearEnd", "", e.target.value)
+                  }
                   readOnly={isReadOnly}
-                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? 'bg-gray-50' : ''}`}
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
                 />
               </div>
             </div>
@@ -162,67 +211,94 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                 <input
                   type="text"
                   value={companyData.legalAddress.street}
-                  onChange={(e) => !isReadOnly && updateField("legalAddress", "street", e.target.value)}
+                  onChange={(e) =>
+                    !isReadOnly &&
+                    updateField("legalAddress", "street", e.target.value)
+                  }
                   readOnly={isReadOnly}
-                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? 'bg-gray-50' : ''}`}
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
                   placeholder="Enter street address"
                 />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">City <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    City <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     value={companyData.legalAddress.city}
-                    onChange={(e) => !isReadOnly && updateField("legalAddress", "city", e.target.value)}
+                    onChange={(e) =>
+                      !isReadOnly &&
+                      updateField("legalAddress", "city", e.target.value)
+                    }
                     readOnly={isReadOnly}
-                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? 'bg-gray-50' : ''}`}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
                     placeholder="Enter city"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">State/Province <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    State/Province <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     value={companyData.legalAddress.state}
-                    onChange={(e) => !isReadOnly && updateField("legalAddress", "state", e.target.value)}
+                    onChange={(e) =>
+                      !isReadOnly &&
+                      updateField("legalAddress", "state", e.target.value)
+                    }
                     readOnly={isReadOnly}
-                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? 'bg-gray-50' : ''}`}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
                     placeholder="Enter state"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Zip/Postal Code <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Zip/Postal Code <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     value={companyData.legalAddress.zipCode}
-                    onChange={(e) => !isReadOnly && updateField("legalAddress", "zipCode", e.target.value)}
+                    onChange={(e) =>
+                      !isReadOnly &&
+                      updateField("legalAddress", "zipCode", e.target.value)
+                    }
                     readOnly={isReadOnly}
-                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? 'bg-gray-50' : ''}`}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
                     placeholder="Enter zip code"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Country <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Country <span className="text-red-500">*</span>
+                  </label>
                   <select
                     value={companyData.legalAddress.country}
                     onChange={(e) => {
                       if (isReadOnly) return;
                       const newCountry = e.target.value;
                       let newCompType = companyData.companyType;
-                      if (newCountry === "India") newCompType = "Private Limited";
-                      else if (newCountry === "USA") newCompType = "Corporation";
-                      
+                      if (newCountry === "India")
+                        newCompType = "Private Limited";
+                      else if (newCountry === "USA")
+                        newCompType = "Corporation";
+
                       setCompanyData({
                         ...companyData,
-                        legalAddress: { ...companyData.legalAddress, country: newCountry },
-                        companyType: newCompType
+                        legalAddress: {
+                          ...companyData.legalAddress,
+                          country: newCountry,
+                        },
+                        companyType: newCompType,
                       });
                     }}
                     disabled={isReadOnly}
-                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent bg-white ${isReadOnly ? 'bg-gray-100' : ''}`}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent bg-white ${isReadOnly ? "bg-gray-100" : ""}`}
                   >
-                    <option value="" disabled>Select Country</option>
+                    <option value="" disabled>
+                      Select Country
+                    </option>
                     <option value="India">India</option>
                     <option value="USA">USA</option>
                     <option value="UK">United Kingdom</option>
@@ -239,7 +315,9 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
         <Card className="lg:col-span-2 shadow-sm border-gray-200">
           <CardHeader>
             <CardTitle className="text-xl font-bold flex items-center gap-2">
-              <span className="w-5 h-5 flex items-center justify-center bg-indigo-100 text-indigo-600 rounded text-xs font-bold">%</span>
+              <span className="w-5 h-5 flex items-center justify-center bg-indigo-100 text-indigo-600 rounded text-xs font-bold">
+                %
+              </span>
               Tax Registration Numbers
             </CardTitle>
           </CardHeader>
@@ -247,40 +325,78 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {companyData.legalAddress.country === "India" ? "Permanent Account Number (PAN)" :
-                   companyData.legalAddress.country === "USA" ? "EIN / TIN" :
-                   companyData.legalAddress.country === "France" ? "SIRET Number" :
-                   "Tax Registration Number"} <span className="text-red-500">*</span>
+                  {companyData.legalAddress.country === "India"
+                    ? "Permanent Account Number (PAN)"
+                    : companyData.legalAddress.country === "USA"
+                      ? "EIN / TIN"
+                      : companyData.legalAddress.country === "France"
+                        ? "SIRET Number"
+                        : "Tax Registration Number"}{" "}
+                  <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  value={companyData.taxRegistrationNumber}
-                  onChange={(e) => !isReadOnly && setCompanyData({ ...companyData, taxRegistrationNumber: e.target.value.toUpperCase() })}
+                  value={
+                    companyData.legalAddress.country === "India"
+                      ? (companyData.taxRegistrationNumbers?.pan ?? "")
+                      : companyData.legalAddress.country === "USA"
+                        ? (companyData.taxRegistrationNumbers?.ein ?? "")
+                        : companyData.legalAddress.country === "France"
+                          ? (companyData.taxRegistrationNumbers?.siret ?? "")
+                          : (companyData.taxRegistrationNumbers?.other ?? "")
+                  }
+                  onChange={(e) => {
+                    if (isReadOnly) return;
+                    const val = e.target.value.toUpperCase();
+                    const country = companyData.legalAddress.country;
+                    const taxKey =
+                      country === "India"
+                        ? "pan"
+                        : country === "USA"
+                          ? "ein"
+                          : country === "France"
+                            ? "siret"
+                            : "other";
+                    updateField("taxRegistrationNumbers", taxKey, val);
+                  }}
                   readOnly={isReadOnly}
-                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent uppercase ${isReadOnly ? 'bg-gray-50' : ''}`}
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent uppercase ${isReadOnly ? "bg-gray-50" : ""}`}
                   placeholder={
-                    companyData.legalAddress.country === "India" ? "Enter PAN (e.g., ABCDE1234F)" :
-                    companyData.legalAddress.country === "USA" ? "Enter EIN/TIN (e.g., 12-3456789)" :
-                    companyData.legalAddress.country === "France" ? "Enter SIRET (14 digits)" :
-                    "Enter Tax Registration Number"
+                    companyData.legalAddress.country === "India"
+                      ? "Enter PAN (e.g., ABCDE1234F)"
+                      : companyData.legalAddress.country === "USA"
+                        ? "Enter EIN/TIN (e.g., 12-3456789)"
+                        : companyData.legalAddress.country === "France"
+                          ? "Enter SIRET (14 digits)"
+                          : "Enter Tax Registration Number"
                   }
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Secondary Tax ID (Optional)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Secondary Tax ID (Optional)
+                </label>
                 <input
                   type="text"
                   value={companyData.taxRegistrationNumbers.other}
-                  onChange={(e) => !isReadOnly && updateField("taxRegistrationNumbers", "other", e.target.value)}
+                  onChange={(e) =>
+                    !isReadOnly &&
+                    updateField(
+                      "taxRegistrationNumbers",
+                      "other",
+                      e.target.value,
+                    )
+                  }
                   readOnly={isReadOnly}
-                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? 'bg-gray-50' : ''}`}
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
                   placeholder="Enter secondary tax ID"
                 />
               </div>
             </div>
             {companyData.legalAddress.country === "India" && (
               <p className="mt-3 text-xs text-amber-600 flex items-center gap-1">
-                <span className="font-semibold">Note:</span> GST and Tax rules may vary across different states in India.
+                <span className="font-semibold">Note:</span> GST and Tax rules
+                may vary across different states in India.
               </p>
             )}
           </CardContent>
@@ -296,41 +412,47 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
           <div className="flex items-start gap-3">
             <Briefcase className="w-5 h-5 text-purple-600 mt-0.5" />
             <div>
-              <h4 className="font-semibold text-purple-900 text-sm mb-1">Organizational Structure</h4>
-              <p className="text-sm text-purple-700">Define functional units, cost centers, and job hierarchy.</p>
+              <h4 className="font-semibold text-purple-900 text-sm mb-1">
+                Organizational Structure
+              </h4>
+              <p className="text-sm text-purple-700">
+                Define functional units, cost centers, and job hierarchy.
+              </p>
             </div>
           </div>
         </div>
 
         <Card className="shadow-sm border-gray-200">
           <CardHeader>
-            <CardTitle className="text-xl font-bold">Business Units</CardTitle>
+            <CardTitle className="text-xl font-bold">
+              Business Units & Divisions
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <textarea
-              value={companyData.businessUnits?.join("\n") || ""}
-              onChange={(e) => !isReadOnly && setCompanyData({ ...companyData, businessUnits: e.target.value.split("\n") })}
-              readOnly={isReadOnly}
-              rows={3}
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? 'bg-gray-50' : ''}`}
-              placeholder="Enter business units (one per line)"
-            />
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-sm border-gray-200">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold">Divisions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <textarea
-              value={companyData.divisions?.join("\n") || ""}
-              onChange={(e) => !isReadOnly && setCompanyData({ ...companyData, divisions: e.target.value.split("\n") })}
-              readOnly={isReadOnly}
-              rows={3}
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? 'bg-gray-50' : ''}`}
-              placeholder="Enter divisions (one per line)"
-            />
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Business Units
+                </label>
+                <textarea
+                  value={companyData.businessUnits?.join("\n") || ""}
+                  onChange={(e) =>
+                    !isReadOnly &&
+                    setCompanyData({
+                      ...companyData,
+                      businessUnits: e.target.value.split("\n"),
+                    })
+                  }
+                  readOnly={isReadOnly}
+                  rows={4}
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
+                  placeholder="Enter each business unit on a new line&#10;e.g., Product A&#10;Region B&#10;Service C"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Enter each business unit on a new line
+                </p>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -339,14 +461,28 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
             <CardTitle className="text-xl font-bold">Cost Centers</CardTitle>
           </CardHeader>
           <CardContent>
-            <textarea
-              value={companyData.costCenters?.join("\n") || ""}
-              onChange={(e) => !isReadOnly && setCompanyData({ ...companyData, costCenters: e.target.value.split("\n") })}
-              readOnly={isReadOnly}
-              rows={3}
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? 'bg-gray-50' : ''}`}
-              placeholder="Enter cost centers (one per line)"
-            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Cost Center Codes
+              </label>
+              <textarea
+                value={companyData.costCenters?.join("\n") || ""}
+                onChange={(e) =>
+                  !isReadOnly &&
+                  setCompanyData({
+                    ...companyData,
+                    costCenters: e.target.value.split("\n"),
+                  })
+                }
+                readOnly={isReadOnly}
+                rows={4}
+                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
+                placeholder="Enter each cost center on a new line&#10;e.g., CC-100 - Engineering&#10;CC-200 - Sales&#10;CC-300 - Marketing"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Used for financial tracking and allocating employee costs
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -360,8 +496,12 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
           <div className="flex items-start gap-3">
             <MapPin className="w-5 h-5 text-green-600 mt-0.5" />
             <div>
-              <h4 className="font-semibold text-green-900 text-sm mb-1">Geographical & Location Structure</h4>
-              <p className="text-sm text-green-700">Add physical office locations for reginal compliance.</p>
+              <h4 className="font-semibold text-green-900 text-sm mb-1">
+                Geographical & Location Structure
+              </h4>
+              <p className="text-sm text-green-700">
+                Add physical office locations for reginal compliance.
+              </p>
             </div>
           </div>
         </div>
@@ -383,7 +523,10 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
         ) : (
           <div className="grid grid-cols-1 gap-6">
             {companyData.locations.map((loc: any) => (
-              <Card key={loc.id} className="shadow-sm border-gray-200 overflow-hidden">
+              <Card
+                key={loc.id}
+                className="shadow-sm border-gray-200 overflow-hidden"
+              >
                 <CardHeader className="bg-gray-50 border-b border-gray-200 flex flex-row items-center justify-between py-4">
                   <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
                     <MapPin className="w-5 h-5 text-indigo-600" />
@@ -391,25 +534,25 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                   </CardTitle>
                   {!isReadOnly && (
                     <div className="flex items-center gap-2">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="h-10 w-10 p-0 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
                         title="View Location"
                       >
                         <Eye className="w-4 h-4" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="h-10 w-10 p-0 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
                         title="Edit Location"
                       >
                         <Pencil className="w-4 h-4" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => removeLocation(loc.id)}
                         className="h-10 w-10 p-0 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
                         title="Remove Location"
@@ -422,89 +565,144 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                 <CardContent className="pt-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Location Name</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Location Name
+                      </label>
                       <input
                         type="text"
                         value={loc.locationName}
-                        onChange={(e) => !isReadOnly && updateLocation(loc.id, "locationName", e.target.value)}
+                        onChange={(e) =>
+                          !isReadOnly &&
+                          updateLocation(loc.id, "locationName", e.target.value)
+                        }
                         readOnly={isReadOnly}
-                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? 'bg-gray-50' : ''}`}
+                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
                         placeholder="e.g. Headquarters"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Location Code</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Location Code
+                      </label>
                       <input
                         type="text"
                         value={loc.locationCode}
-                        onChange={(e) => !isReadOnly && updateLocation(loc.id, "locationCode", e.target.value)}
+                        onChange={(e) =>
+                          !isReadOnly &&
+                          updateLocation(loc.id, "locationCode", e.target.value)
+                        }
                         readOnly={isReadOnly}
-                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? 'bg-gray-50' : ''}`}
+                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
                         placeholder="e.g. HQ-001"
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Street Address</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Street Address
+                      </label>
                       <input
                         type="text"
                         value={loc.address.street}
-                        onChange={(e) => !isReadOnly && updateLocation(loc.id, "address", { ...loc.address, street: e.target.value })}
+                        onChange={(e) =>
+                          !isReadOnly &&
+                          updateLocation(loc.id, "address", {
+                            ...loc.address,
+                            street: e.target.value,
+                          })
+                        }
                         readOnly={isReadOnly}
-                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? 'bg-gray-50' : ''}`}
+                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
                         placeholder="Enter street address"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        City
+                      </label>
                       <input
                         type="text"
                         value={loc.address.city}
-                        onChange={(e) => !isReadOnly && updateLocation(loc.id, "address", { ...loc.address, city: e.target.value })}
+                        onChange={(e) =>
+                          !isReadOnly &&
+                          updateLocation(loc.id, "address", {
+                            ...loc.address,
+                            city: e.target.value,
+                          })
+                        }
                         readOnly={isReadOnly}
-                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? 'bg-gray-50' : ''}`}
+                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
                         placeholder="Enter city"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">State/Province</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        State/Province
+                      </label>
                       <input
                         type="text"
                         value={loc.address.state}
-                        onChange={(e) => !isReadOnly && updateLocation(loc.id, "address", { ...loc.address, state: e.target.value })}
+                        onChange={(e) =>
+                          !isReadOnly &&
+                          updateLocation(loc.id, "address", {
+                            ...loc.address,
+                            state: e.target.value,
+                          })
+                        }
                         readOnly={isReadOnly}
-                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? 'bg-gray-50' : ''}`}
+                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
                         placeholder="Enter state/province"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Zip/Postal Code</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Zip/Postal Code
+                      </label>
                       <input
                         type="text"
                         value={loc.address.zipCode}
-                        onChange={(e) => !isReadOnly && updateLocation(loc.id, "address", { ...loc.address, zipCode: e.target.value })}
+                        onChange={(e) =>
+                          !isReadOnly &&
+                          updateLocation(loc.id, "address", {
+                            ...loc.address,
+                            zipCode: e.target.value,
+                          })
+                        }
                         readOnly={isReadOnly}
-                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? 'bg-gray-50' : ''}`}
+                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
                         placeholder="Enter zip code"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Country
+                      </label>
                       <input
                         type="text"
                         value={loc.address.country}
-                        onChange={(e) => !isReadOnly && updateLocation(loc.id, "address", { ...loc.address, country: e.target.value })}
+                        onChange={(e) =>
+                          !isReadOnly &&
+                          updateLocation(loc.id, "address", {
+                            ...loc.address,
+                            country: e.target.value,
+                          })
+                        }
                         readOnly={isReadOnly}
-                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? 'bg-gray-50' : ''}`}
+                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
                         placeholder="Enter country"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Time Zone</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Time Zone
+                      </label>
                       <select
                         value={loc.timeZone}
-                        onChange={(e) => !isReadOnly && updateLocation(loc.id, "timeZone", e.target.value)}
+                        onChange={(e) =>
+                          !isReadOnly &&
+                          updateLocation(loc.id, "timeZone", e.target.value)
+                        }
                         disabled={isReadOnly}
-                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent bg-white ${isReadOnly ? 'bg-gray-100' : ''}`}
+                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent bg-white ${isReadOnly ? "bg-gray-100" : ""}`}
                       >
                         <option value="">Select Time Zone</option>
                         <option value="Asia/Kolkata">India (IST)</option>
@@ -514,13 +712,18 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Tax Location/Establishment</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Tax Location/Establishment
+                      </label>
                       <input
                         type="text"
                         value={loc.taxLocation}
-                        onChange={(e) => !isReadOnly && updateLocation(loc.id, "taxLocation", e.target.value)}
+                        onChange={(e) =>
+                          !isReadOnly &&
+                          updateLocation(loc.id, "taxLocation", e.target.value)
+                        }
                         readOnly={isReadOnly}
-                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? 'bg-gray-50' : ''}`}
+                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
                         placeholder="Enter tax location"
                       />
                     </div>
@@ -541,50 +744,216 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
           <div className="flex items-start gap-3">
             <Calendar className="w-5 h-5 text-orange-600 mt-0.5" />
             <div>
-              <h4 className="font-semibold text-orange-900 text-sm mb-1">HR & Payroll Structure</h4>
-              <p className="text-sm text-orange-700">Configure payroll settings and working calendar.</p>
+              <h4 className="font-semibold text-orange-900 text-sm mb-1">
+                HR & Payroll Structure
+              </h4>
+              <p className="text-sm text-orange-700">
+                Configure payroll settings and working calendar.
+              </p>
             </div>
           </div>
         </div>
 
         <Card className="shadow-sm border-gray-200">
           <CardHeader>
-            <CardTitle className="text-xl font-bold">Payroll Configuration</CardTitle>
+            <CardTitle className="text-xl font-bold">
+              Payroll Configuration
+            </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Payroll Statutory Unit (PSU)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Payroll Statutory Unit (PSU)
+              </label>
               <input
                 type="text"
                 value={companyData.payrollStatutoryUnit}
-                onChange={(e) => !isReadOnly && setCompanyData({ ...companyData, payrollStatutoryUnit: e.target.value })}
+                onChange={(e) =>
+                  !isReadOnly &&
+                  setCompanyData({
+                    ...companyData,
+                    payrollStatutoryUnit: e.target.value,
+                  })
+                }
                 readOnly={isReadOnly}
-                className={`w-full px-4 py-2 border border-gray-300 rounded-lg ${isReadOnly ? 'bg-gray-50' : ''}`}
+                className={`w-full px-4 py-2 border border-gray-300 rounded-lg ${isReadOnly ? "bg-gray-50" : ""}`}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Legal Employer</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Legal Employer
+              </label>
               <input
                 type="text"
                 value={companyData.legalEmployer}
-                onChange={(e) => !isReadOnly && setCompanyData({ ...companyData, legalEmployer: e.target.value })}
+                onChange={(e) =>
+                  !isReadOnly &&
+                  setCompanyData({
+                    ...companyData,
+                    legalEmployer: e.target.value,
+                  })
+                }
                 readOnly={isReadOnly}
-                className={`w-full px-4 py-2 border border-gray-300 rounded-lg ${isReadOnly ? 'bg-gray-50' : ''}`}
+                className={`w-full px-4 py-2 border border-gray-300 rounded-lg ${isReadOnly ? "bg-gray-50" : ""}`}
                 placeholder="Entity that signs contracts"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Pay Frequency</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Legislative Data Group (LDG)
+              </label>
+              <input
+                type="text"
+                value={companyData.legislativeDataGroup || ""}
+                onChange={(e) =>
+                  !isReadOnly &&
+                  setCompanyData({
+                    ...companyData,
+                    legislativeDataGroup: e.target.value,
+                  })
+                }
+                readOnly={isReadOnly}
+                className={`w-full px-4 py-2 border border-gray-300 rounded-lg ${isReadOnly ? "bg-gray-50" : ""}`}
+                placeholder="Payroll information grouping"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Contains currency, tax rules, and pension types
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Pay Frequency <span className="text-red-500">*</span>
+              </label>
               <select
                 value={companyData.payFrequency}
-                onChange={(e) => !isReadOnly && setCompanyData({ ...companyData, payFrequency: e.target.value })}
+                onChange={(e) =>
+                  !isReadOnly &&
+                  setCompanyData({
+                    ...companyData,
+                    payFrequency: e.target.value,
+                  })
+                }
                 disabled={isReadOnly}
-                className={`w-full px-4 py-2 border border-gray-300 rounded-lg bg-white ${isReadOnly ? 'bg-gray-100' : ''}`}
+                className={`w-full px-4 py-2 border border-gray-300 rounded-lg bg-white ${isReadOnly ? "bg-gray-100" : ""}`}
               >
                 <option value="Weekly">Weekly</option>
                 <option value="Bi-weekly">Bi-weekly</option>
                 <option value="Monthly">Monthly</option>
               </select>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm border-gray-200">
+          <CardHeader>
+            <CardTitle className="text-xl font-bold">
+              Working Calendar & Schedule
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Standard Working Hours per Week
+                </label>
+                <input
+                  type="number"
+                  value={companyData.workingCalendar?.standardHours || 40}
+                  onChange={(e) =>
+                    !isReadOnly &&
+                    setCompanyData({
+                      ...companyData,
+                      workingCalendar: {
+                        ...companyData.workingCalendar,
+                        standardHours: parseInt(e.target.value) || 0,
+                      },
+                    })
+                  }
+                  readOnly={isReadOnly}
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
+                  min="0"
+                  max="168"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Working Days
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    "Monday",
+                    "Tuesday",
+                    "Wednesday",
+                    "Thursday",
+                    "Friday",
+                    "Saturday",
+                    "Sunday",
+                  ].map((day) => (
+                    <label key={day} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={(
+                          companyData.workingCalendar?.workingDays || []
+                        ).includes(day)}
+                        onChange={(e) => {
+                          if (isReadOnly) return;
+                          const days = e.target.checked
+                            ? [
+                                ...(companyData.workingCalendar?.workingDays ||
+                                  []),
+                                day,
+                              ]
+                            : (
+                                companyData.workingCalendar?.workingDays || []
+                              ).filter((d: string) => d !== day);
+                          setCompanyData({
+                            ...companyData,
+                            workingCalendar: {
+                              ...companyData.workingCalendar,
+                              workingDays: days,
+                            },
+                          });
+                        }}
+                        disabled={isReadOnly}
+                        className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-600"
+                      />
+                      <span className="text-sm text-gray-700">{day}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Public Holidays
+                </label>
+                <textarea
+                  value={
+                    companyData.workingCalendar?.publicHolidays?.join("\n") ||
+                    ""
+                  }
+                  onChange={(e) =>
+                    !isReadOnly &&
+                    setCompanyData({
+                      ...companyData,
+                      workingCalendar: {
+                        ...companyData.workingCalendar,
+                        publicHolidays: e.target.value
+                          .split("\n")
+                          .filter((v: string) => v.trim()),
+                      },
+                    })
+                  }
+                  readOnly={isReadOnly}
+                  rows={6}
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
+                  placeholder="Enter each holiday on a new line&#10;e.g., New Year's Day - Jan 1&#10;Christmas - Dec 25"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Enter each public holiday on a new line
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
