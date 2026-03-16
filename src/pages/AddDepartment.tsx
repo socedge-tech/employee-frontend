@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
+import { toTitleCase } from "../utils/stringUtils";
 import { ArrowLeft, Save, Plus, Trash2, Users, Search, X, Shield, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardContent, CardTitle } from "../components/ui/card.tsx";
 import { Button } from "../components/ui/button.tsx";
@@ -167,16 +168,16 @@ export function AddDepartment() {
     }
 
     const payload: any = {
-      department_name: departmentName,
+      department_name: toTitleCase(departmentName),
       department_code: departmentCode,
-      description,
+      description: toTitleCase(description),
       branch_id: selectedBranchId ? parseInt(selectedBranchId, 10) : undefined,
       manager_id: manager?.id ? parseInt(manager.id, 10) : undefined,
       parent_department_id: parentDepartment !== "None" ? parseInt(parentDepartment as string, 10) : null,
       annual_budget: budget ? parseFloat(budget) : 0,
       teams: teams.map(t => ({
-        team_name: t.name,
-        description: t.description,
+        team_name: toTitleCase(t.name),
+        description: toTitleCase(t.description),
         team_lead_id: t.leadId ? parseInt(t.leadId, 10) : null,
         team_members: t.members.map(mId => parseInt(mId, 10))
       })),

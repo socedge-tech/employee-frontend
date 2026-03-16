@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { toTitleCase } from "../utils/stringUtils";
 import { ArrowLeft, Upload, Trash2, PlusCircle, Loader2 } from "lucide-react";
 import { Button } from "../components/ui/button.tsx";
 import { getDepartments } from "../api/departments.ts";
@@ -92,6 +93,8 @@ export function AddEmployee() {
     currency: "USD",
     payFrequency: "Monthly",
     
+    branchId: "", // Added to store branch ID
+    
     passportNumber: "",
     passportExpiry: "",
     drivingLicense: "",
@@ -109,6 +112,12 @@ export function AddEmployee() {
     languages: ""
   });
 
+  const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
+  const [profilePhotoPreview, setProfilePhotoPreview] = useState<string | null>(null);
+  const [cvFile, setCvFile] = useState<File | null>(null);
+  const [certificateFiles, setCertificateFiles] = useState<File[]>([]);
+  const [otherDocuments, setOtherDocuments] = useState<File[]>([]);
+
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [educationHistory, setEducationHistory] = useState<Education[]>([]);
   const [employmentHistory, setEmploymentHistory] = useState<Employment[]>([]);
@@ -121,36 +130,131 @@ export function AddEmployee() {
   const [managersList, setManagersList] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [locationsList, setLocationsList] = useState<string[]>([]);
+  const [locationsList, setLocationsList] = useState<{id: number | string, name: string}[]>([]);
+  
+  const [loadingStates, setLoadingStates] = useState({
+    departments: false,
+    roles: false,
+    managers: false,
+    locations: false,
+    employee: false
+  });
+  
+  const [errorStates, setErrorStates] = useState({
+    departments: "",
+    roles: "",
+    managers: "",
+    locations: "",
+    employee: ""
+  });
 
   useEffect(() => {
     const fetchInitialData = async () => {
+      // Departments
+      setLoadingStates(prev => ({ ...prev, departments: true }));
+      try {
+        const deps = await getDepartments();
+        setDepartmentsList(deps || []);
+        setErrorStates(prev => ({ ...prev, departments: "" }));
+      } catch (error: any) {
+        console.error("Failed to load departments", error);
+        setErrorStates(prev => ({ ...prev, departments: error.message || "Failed to load departments" }));
+      } finally {
+        setLoadingStates(prev => ({ ...prev, departments: false }));
+      }
+
+      // Roles
+      setLoadingStates(prev => ({ ...prev, roles: true }));
+      try {
+        const roles = await getRoles();
+        setRolesList(roles || []);
+        setErrorStates(prev => ({ ...prev, roles: "" }));
+      } catch (error: any) {
+        console.error("Failed to load roles", error);
+        setErrorStates(prev => ({ ...prev, roles: error.message || "Failed to load roles" }));
+      } finally {
+        setLoadingStates(prev => ({ ...prev, roles: false }));
+      }
+
+      // Employees (Managers)
+      setLoadingStates(prev => ({ ...prev, managers: true }));
+      try {
+        const emps = await getEmployees();
+        setManagersList(emps || []);
+        setErrorStates(prev => ({ ...prev, managers: "" }));
+      } catch (error: any) {
+        console.error("Failed to load managers", error);
+        setErrorStates(prev => ({ ...prev, managers: error.message || "Failed to load managers" }));
+      } finally {
+        setLoadingStates(prev => ({ ...prev, managers: false }));
+      }
+
+      // Generate Employee ID if it's a new employee
+      if (!id) {
+        try {
+          const employees = await getEmployees();
+          const currentYear = new Date().getFullYear();
+          let nextNumber = 1;
+
+          if (Array.isArray(employees) && employees.length > 0) {
+            const yearPattern = new RegExp(`EMP-${currentYear}-(\\d+)`);
+            const yearIds = employees
+              .map(emp => emp.details?.employee_id || "")
+              .filter(empId => yearPattern.test(empId))
+              .map(empId => {
+                const match = empId.match(yearPattern);
+                return match ? parseInt(match[1], 10) : 0;
+              });
+
+            if (yearIds.length > 0) {
+              nextNumber = Math.max(...yearIds) + 1;
+            }
+          }
+
+          const generatedId = `EMP-${currentYear}-${nextNumber.toString().padStart(3, "0")}`;
+          setFormData(prev => ({ ...prev, employeeId: generatedId }));
+        } catch (error) {
+          console.error("Failed to generate employee ID", error);
+        }
+      }
+
+      // Organizations/Branches
+      setLoadingStates(prev => ({ ...prev, locations: true }));
       try {
         const { getOrganizations } = await import("../api/organizations");
-        const [deps, emps, roles, orgs] = await Promise.all([
-          getDepartments(),
-          getEmployees(),
-          getRoles(),
-          getOrganizations()
-        ]);
-        setDepartmentsList(deps);
-        setManagersList(emps);
-        setRolesList(roles);
-
-        // Extract locations from organizations/branches
-        const locations = new Set<string>();
-        (orgs || []).forEach((org: any) => {
-          (org.branches || org.branch || []).forEach((b: any) => {
-            if (b.branch_name) locations.add(b.branch_name);
-            if (b.location_name) locations.add(b.location_name);
-          });
-          if (org.city) locations.add(org.city);
-        });
-        setLocationsList(Array.from(locations).filter(Boolean));
+        const orgs = await getOrganizations();
         
-        // If ID exists, fetch employee data
-        if (id) {
-          setIsSubmitting(true);
+        const locations: {id: number | string, name: string}[] = [];
+        
+        // Ensure orgs is an array before iterating
+        if (Array.isArray(orgs)) {
+          orgs.forEach((org: any) => {
+            const branches = org.branches || org.branch || [];
+            if (Array.isArray(branches)) {
+              branches.forEach((b: any) => {
+                const name = b.branch_name || b.location_name;
+                if (name) {
+                  locations.push({ id: b.id, name: name });
+                }
+              });
+            }
+          });
+        }
+        
+        setLocationsList(locations);
+        setErrorStates(prev => ({ ...prev, locations: "" }));
+      } catch (error: any) {
+        console.error("Failed to load locations", error);
+        setErrorStates(prev => ({ ...prev, locations: error.message || "Failed to load branches" }));
+      } finally {
+        setLoadingStates(prev => ({ ...prev, locations: false }));
+      }
+
+      // If ID exists, fetch employee data
+      if (id) {
+        setLoadingStates(prev => ({ ...prev, employee: true }));
+        setIsSubmitting(true);
+        try {
           const emp = await getEmployee(parseInt(id, 10));
           const details: any = emp.details || {};
           
@@ -199,6 +303,8 @@ export function AddEmployee() {
             currency: details.currency || "USD",
             payFrequency: details.salary_frequency || "Monthly",
             
+            branchId: details.branch_id?.toString() || (details.work_location === "Remote" ? "remote" : ""),
+            
             passportNumber: details.passport_number || "",
             passportExpiry: details.passport_expiry_date ? details.passport_expiry_date.split('T')[0] : "",
             drivingLicense: details.driving_license_number || "",
@@ -220,16 +326,35 @@ export function AddEmployee() {
           if (details.education) setEducationHistory(details.education);
           if (details.employment_history) setEmploymentHistory(details.employment_history);
           if (details.compensation_breakdown) setCompensationSplits(details.compensation_breakdown);
+          setErrorStates(prev => ({ ...prev, employee: "" }));
+        } catch (error: any) {
+          console.error("Failed to load employee details", error);
+          setErrorStates(prev => ({ ...prev, employee: error.message || "Failed to load employee details" }));
+          toast.error("Failed to load employee data");
+        } finally {
+          setIsSubmitting(false);
+          setLoadingStates(prev => ({ ...prev, employee: false }));
         }
-      } catch (error) {
-        console.error("Failed to load initial data", error);
-        toast.error("Failed to load departments and managers");
-      } finally {
-        setIsSubmitting(false);
       }
     };
     fetchInitialData();
   }, [id]);
+
+  const handleNext = () => {
+    const currentIndex = sections.findIndex(s => s.id === activeSection);
+    if (currentIndex < sections.length - 1) {
+      setActiveSection(sections[currentIndex + 1].id);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handlePrevious = () => {
+    const currentIndex = sections.findIndex(s => s.id === activeSection);
+    if (currentIndex > 0) {
+      setActiveSection(sections[currentIndex - 1].id);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   const sections = [
     { id: "job", label: "Job Details" },
@@ -247,6 +372,25 @@ export function AddEmployee() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    
+    if (name === "location") {
+      if (value === "Remote") {
+        setFormData(prev => ({ ...prev, location: "Remote", branchId: "remote" }));
+      } else {
+        const selectedBranch = locationsList.find(loc => loc.id.toString() === value);
+        if (selectedBranch) {
+          setFormData(prev => ({ 
+            ...prev, 
+            location: selectedBranch.name, 
+            branchId: selectedBranch.id.toString() 
+          }));
+        } else {
+          setFormData(prev => ({ ...prev, location: "", branchId: "" }));
+        }
+      }
+      return;
+    }
+    
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
@@ -255,8 +399,8 @@ export function AddEmployee() {
     setIsSubmitting(true);
     
     // Check if required fields are provided
-    if (!formData.firstName || !formData.lastName || !formData.primaryEmail) {
-      toast.error("Please fill in all required fields (Name, Email)");
+    if (!formData.firstName || !formData.primaryEmail) {
+      toast.error("Please fill in basic required fields (First Name and Email)");
       setIsSubmitting(false);
       return;
     }
@@ -267,12 +411,12 @@ export function AddEmployee() {
       status: true,
       
       // UserDetail Table Fields
-      first_name: formData.firstName,
-      last_name: formData.lastName,
-      middle_name: formData.middleName,
+      first_name: toTitleCase(formData.firstName),
+      last_name: toTitleCase(formData.lastName),
+      middle_name: toTitleCase(formData.middleName),
       date_of_birth: formData.dateOfBirth,
       gender: formData.gender,
-      nationality: formData.nationality,
+      nationality: toTitleCase(formData.nationality),
       marital_status: formData.maritalStatus,
       blood_group: formData.bloodGroup,
       
@@ -280,30 +424,31 @@ export function AddEmployee() {
       secondary_phone: formData.secondaryPhone,
       secondary_email: formData.secondaryEmail,
       
-      address: formData.primaryAddress,
-      city: formData.primaryCity,
-      state: formData.primaryState,
+      address: toTitleCase(formData.primaryAddress),
+      city: toTitleCase(formData.primaryCity),
+      state: toTitleCase(formData.primaryState),
       zip: formData.primaryZip,
-      country: formData.primaryCountry,
+      country: toTitleCase(formData.primaryCountry),
       
-      secondary_address: formData.secondaryAddress,
-      secondary_city: formData.secondaryCity,
-      secondary_state: formData.secondaryState,
+      secondary_address: toTitleCase(formData.secondaryAddress),
+      secondary_city: toTitleCase(formData.secondaryCity),
+      secondary_state: toTitleCase(formData.secondaryState),
       secondary_zip: formData.secondaryZip,
-      secondary_country: formData.secondaryCountry,
+      secondary_country: toTitleCase(formData.secondaryCountry),
       
-      emergency_contact: formData.emergencyContactName,
+      emergency_contact: toTitleCase(formData.emergencyContactName),
       emergency_relationship: formData.emergencyContactRelationship,
       emergency_phone: formData.emergencyContactPhone,
       emergency_email: formData.emergencyContactEmail,
       
       employee_id: formData.employeeId,
       department_id: formData.department ? parseInt(formData.department, 10) : undefined,
-      job_role: rolesList.find(r => r.id.toString() === formData.role)?.role_name || formData.role,
+      job_role: toTitleCase(rolesList.find(r => r.id.toString() === formData.role)?.role_name || formData.role),
       role_id: formData.role ? parseInt(formData.role, 10) : undefined,
       employment_type: formData.employeeType,
       start_date: formData.startDate,
-      work_location: formData.location,
+      work_location: toTitleCase(formData.location),
+      branch_id: formData.branchId && formData.branchId !== "remote" ? parseInt(formData.branchId, 10) : undefined,
       work_schedule: formData.workSchedule,
       reporting_manager_id: formData.manager ? parseInt(formData.manager, 10) : undefined,
       probation_period: formData.probationPeriod ? parseInt(formData.probationPeriod, 10) : undefined,
@@ -311,7 +456,7 @@ export function AddEmployee() {
       base_salary: formData.baseSalary ? parseFloat(formData.baseSalary) : undefined,
       currency: formData.currency,
       salary_frequency: formData.payFrequency,
-      compensation_breakdown: compensationSplits,
+      compensation_breakdown: JSON.stringify(compensationSplits),
       
       passport_number: formData.passportNumber,
       passport_expiry_date: formData.passportExpiry,
@@ -320,8 +465,8 @@ export function AddEmployee() {
       social_security_number: formData.socialSecurityNumber,
       tax_id_number: formData.taxId,
       
-      bank_name: formData.bankName,
-      account_holder_name: formData.accountHolderName,
+      bank_name: toTitleCase(formData.bankName),
+      account_holder_name: toTitleCase(formData.accountHolderName),
       account_number: formData.accountNumber,
       routing_number: formData.routingNumber,
       
@@ -329,17 +474,39 @@ export function AddEmployee() {
       certificates: formData.certifications,
       languages: formData.languages,
       
-      family_members: familyMembers,
-      education_history: educationHistory,
-      employment_history: employmentHistory,
+      family_members: JSON.stringify(familyMembers),
+      education_history: JSON.stringify(educationHistory),
+      employment_history: JSON.stringify(employmentHistory),
     };
+    
+    // Use FormData for multipart/form-data request
+    const payload = new FormData();
+    
+    // Append all text fields
+    Object.keys(completeData).forEach(key => {
+      if (completeData[key] !== undefined && completeData[key] !== null) {
+        payload.append(key, completeData[key]);
+      }
+    });
+    
+    // Append files
+    if (profilePhoto) payload.append("photo", profilePhoto);
+    if (cvFile) payload.append("cv", cvFile);
+    
+    certificateFiles.forEach(file => {
+      payload.append("certificate", file);
+    });
+    
+    otherDocuments.forEach(file => {
+      payload.append("documents[]", file);
+    });
     
     try {
       if (id) {
-        await updateEmployee(parseInt(id, 10), completeData);
+        await updateEmployee(parseInt(id, 10), payload);
         toast.success("Employee updated successfully!");
       } else {
-        await createEmployee(completeData);
+        await createEmployee(payload);
         toast.success("Employee added successfully!");
       }
       navigate("/employee-management");
@@ -424,15 +591,12 @@ export function AddEmployee() {
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0 shadow-sm">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              size="sm"
+            <button
               onClick={() => navigate("/employee-management")}
-              className="gap-2"
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </Button>
+              <ArrowLeft className="w-5 h-5 text-gray-600" />
+            </button>
             <div>
               <h1 className="text-2xl font-semibold text-gray-900">{id ? "Edit Employee" : "Add New Employee"}</h1>
               <p className="text-sm text-gray-500 mt-1">
@@ -513,7 +677,6 @@ export function AddEmployee() {
                           name="lastName"
                           value={formData.lastName}
                           onChange={handleInputChange}
-                          required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           placeholder="Doe"
                         />
@@ -527,7 +690,6 @@ export function AddEmployee() {
                           name="dateOfBirth"
                           value={formData.dateOfBirth}
                           onChange={handleInputChange}
-                          required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                       </div>
@@ -539,7 +701,6 @@ export function AddEmployee() {
                           name="gender"
                           value={formData.gender}
                           onChange={handleInputChange}
-                          required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         >
                           <option value="">Select Gender</option>
@@ -604,10 +765,54 @@ export function AddEmployee() {
                     
                     <div className="pt-4 border-t border-gray-100">
                       <h4 className="text-sm font-bold text-gray-700 mb-4 uppercase tracking-wider">Profile Photo</h4>
-                      <div className="max-w-md border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-indigo-500 hover:bg-indigo-50/30 transition-all cursor-pointer group">
-                        <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3 group-hover:text-indigo-500 transition-colors" />
-                        <p className="text-sm font-medium text-gray-700">Click to upload or drag and drop</p>
-                        <p className="text-xs text-gray-400 mt-2">PNG, JPG or JPEG (Max. 5MB)</p>
+                      <input
+                        type="file"
+                        id="profile-photo-input"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setProfilePhoto(file);
+                            setProfilePhotoPreview(URL.createObjectURL(file));
+                          }
+                        }}
+                      />
+                      <div 
+                        onClick={() => document.getElementById("profile-photo-input")?.click()}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const file = e.dataTransfer.files?.[0];
+                          if (file && file.type.startsWith("image/")) {
+                            setProfilePhoto(file);
+                            setProfilePhotoPreview(URL.createObjectURL(file));
+                          }
+                        }}
+                        className="max-w-md border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-indigo-500 hover:bg-indigo-50/30 transition-all cursor-pointer group relative overflow-hidden h-48 flex flex-col items-center justify-center"
+                      >
+                        {profilePhotoPreview ? (
+                          <>
+                            <img 
+                              src={profilePhotoPreview} 
+                              alt="Profile Preview" 
+                              className="absolute inset-0 w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <p className="text-white text-sm font-medium">Change Photo</p>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3 group-hover:text-indigo-500 transition-colors" />
+                            <p className="text-sm font-medium text-gray-700">Click to upload or drag and drop</p>
+                            <p className="text-xs text-gray-400 mt-2">PNG, JPG or JPEG (Max. 5MB)</p>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -642,7 +847,6 @@ export function AddEmployee() {
                             name="primaryPhone"
                             value={formData.primaryPhone}
                             onChange={handleInputChange}
-                            required
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             placeholder="+1 (555) 123-4567"
                           />
@@ -656,7 +860,6 @@ export function AddEmployee() {
                             name="primaryAddress"
                             value={formData.primaryAddress}
                             onChange={handleInputChange}
-                            required
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             placeholder="123 Main Street"
                           />
@@ -670,7 +873,6 @@ export function AddEmployee() {
                             name="primaryCity"
                             value={formData.primaryCity}
                             onChange={handleInputChange}
-                            required
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             placeholder="San Francisco"
                           />
@@ -684,7 +886,6 @@ export function AddEmployee() {
                             name="primaryState"
                             value={formData.primaryState}
                             onChange={handleInputChange}
-                            required
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             placeholder="California"
                           />
@@ -698,7 +899,6 @@ export function AddEmployee() {
                             name="primaryZip"
                             value={formData.primaryZip}
                             onChange={handleInputChange}
-                            required
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             placeholder="94102"
                           />
@@ -712,7 +912,6 @@ export function AddEmployee() {
                             name="primaryCountry"
                             value={formData.primaryCountry}
                             onChange={handleInputChange}
-                            required
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             placeholder="United States"
                           />
@@ -821,7 +1020,6 @@ export function AddEmployee() {
                           name="emergencyContactName"
                           value={formData.emergencyContactName}
                           onChange={handleInputChange}
-                          required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           placeholder="Jane Doe"
                         />
@@ -834,7 +1032,6 @@ export function AddEmployee() {
                           name="emergencyContactRelationship"
                           value={formData.emergencyContactRelationship}
                           onChange={handleInputChange}
-                          required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         >
                           <option value="">Select Relationship</option>
@@ -855,7 +1052,6 @@ export function AddEmployee() {
                           name="emergencyContactPhone"
                           value={formData.emergencyContactPhone}
                           onChange={handleInputChange}
-                          required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           placeholder="+1 (555) 111-2222"
                         />
@@ -891,44 +1087,52 @@ export function AddEmployee() {
                           name="employeeId"
                           value={formData.employeeId}
                           onChange={handleInputChange}
-                          required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          readOnly
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50"
                           placeholder="EMP-2026-001"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Department <span className="text-red-500">*</span>
-                        </label>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Department <span className="text-red-500">*</span>
+                          </label>
+                          {loadingStates.departments && <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />}
+                        </div>
                         <select
                           name="department"
                           value={formData.department}
                           onChange={handleInputChange}
-                          required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          disabled={loadingStates.departments}
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errorStates.departments ? 'border-red-500' : 'border-gray-300'}`}
                         >
-                          <option value="">Select Department</option>
+                          <option value="">{loadingStates.departments ? "Loading Departments..." : "Select Department"}</option>
                           {departmentsList.map((dep) => (
                             <option key={dep.id} value={dep.id}>{dep.department_name}</option>
                           ))}
                         </select>
+                        {errorStates.departments && <p className="text-xs text-red-500 mt-1">{errorStates.departments}</p>}
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          System Role <span className="text-red-500">*</span>
-                        </label>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            System Role <span className="text-red-500">*</span>
+                          </label>
+                          {loadingStates.roles && <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />}
+                        </div>
                         <select
                           name="role"
                           value={formData.role}
                           onChange={handleInputChange}
-                          required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          disabled={loadingStates.roles}
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errorStates.roles ? 'border-red-500' : 'border-gray-300'}`}
                         >
-                          <option value="">Select Role</option>
+                          <option value="">{loadingStates.roles ? "Loading Roles..." : "Select Role"}</option>
                           {rolesList.map((role) => (
                             <option key={role.id} value={role.id}>{role.role_name}</option>
                           ))}
                         </select>
+                        {errorStates.roles && <p className="text-xs text-red-500 mt-1">{errorStates.roles}</p>}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -938,7 +1142,6 @@ export function AddEmployee() {
                           name="employeeType"
                           value={formData.employeeType}
                           onChange={handleInputChange}
-                          required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         >
                           <option value="Full-time">Full-time</option>
@@ -956,26 +1159,30 @@ export function AddEmployee() {
                           name="startDate"
                           value={formData.startDate}
                           onChange={handleInputChange}
-                          required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Work Location <span className="text-red-500">*</span>
-                        </label>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Work Location <span className="text-red-500">*</span>
+                          </label>
+                          {loadingStates.locations && <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />}
+                        </div>
                         <select
                           name="location"
-                          value={formData.location}
+                          value={formData.branchId || formData.location}
                           onChange={handleInputChange}
-                          required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          disabled={loadingStates.locations}
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errorStates.locations ? 'border-red-500' : 'border-gray-300'}`}
                         >
-                          {locationsList.map(loc => (
-                            <option key={loc} value={loc}>{loc}</option>
-                          ))}
+                          <option value="">{loadingStates.locations ? "Loading Branches..." : "Select Work Location"}</option>
                           <option value="Remote">Remote</option>
+                          {locationsList.map(loc => (
+                            <option key={loc.id} value={loc.id.toString()}>{loc.name}</option>
+                          ))}
                         </select>
+                        {errorStates.locations && <p className="text-xs text-red-500 mt-1">{errorStates.locations}</p>}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -996,22 +1203,27 @@ export function AddEmployee() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Reporting Manager
-                        </label>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Reporting Manager
+                          </label>
+                          {loadingStates.managers && <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />}
+                        </div>
                         <select
                           name="manager"
                           value={formData.manager}
                           onChange={handleInputChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          disabled={loadingStates.managers}
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errorStates.managers ? 'border-red-500' : 'border-gray-300'}`}
                         >
-                          <option value="">Select Manager</option>
+                          <option value="">{loadingStates.managers ? "Loading Managers..." : "Select Manager"}</option>
                           {managersList.map(mgr => (
                             <option key={mgr.id} value={mgr.id}>
                               {mgr.details?.first_name} {mgr.details?.last_name || mgr.username}
                             </option>
                           ))}
                         </select>
+                        {errorStates.managers && <p className="text-xs text-red-500 mt-1">{errorStates.managers}</p>}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1045,7 +1257,6 @@ export function AddEmployee() {
                             name="baseSalary"
                             value={formData.baseSalary}
                             onChange={handleInputChange}
-                            required
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             placeholder="75000"
                           />
@@ -1061,6 +1272,7 @@ export function AddEmployee() {
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           >
                             <option value="USD">USD</option>
+                            <option value="INR">INR – Indian Rupee</option>
                             <option value="EUR">EUR</option>
                             <option value="GBP">GBP</option>
                             <option value="CAD">CAD</option>
@@ -1539,16 +1751,107 @@ export function AddEmployee() {
                     
                     <div className="mt-6">
                       <h4 className="text-sm font-semibold text-gray-700 mb-3">Upload Documents</h4>
-                      <div className="space-y-3">
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-indigo-500 transition-colors cursor-pointer">
-                          <Upload className="w-6 h-6 text-gray-400 mx-auto mb-2" />
-                          <p className="text-sm text-gray-600">Upload Resume/CV</p>
-                          <p className="text-xs text-gray-400 mt-1">PDF, DOC up to 10MB</p>
+                      <div className="space-y-4">
+                        {/* CV Upload */}
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium text-gray-500 uppercase">Resume/CV</label>
+                          <input
+                            type="file"
+                            id="cv-upload-input"
+                            className="hidden"
+                            accept=".pdf,.doc,.docx"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) setCvFile(file);
+                            }}
+                          />
+                          <div 
+                            onClick={() => document.getElementById("cv-upload-input")?.click()}
+                            className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-indigo-500 transition-colors cursor-pointer group"
+                          >
+                            <Upload className="w-6 h-6 text-gray-400 mx-auto mb-2 group-hover:text-indigo-500" />
+                            <p className="text-sm text-gray-600">{cvFile ? cvFile.name : "Upload Resume/CV"}</p>
+                            <p className="text-xs text-gray-400 mt-1">PDF, DOC up to 10MB</p>
+                          </div>
                         </div>
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-indigo-500 transition-colors cursor-pointer">
-                          <Upload className="w-6 h-6 text-gray-400 mx-auto mb-2" />
-                          <p className="text-sm text-gray-600">Upload Certificates</p>
-                          <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG up to 10MB</p>
+
+                        {/* Certificates Upload */}
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium text-gray-500 uppercase">Certificates</label>
+                          <input
+                            type="file"
+                            id="certificate-upload-input"
+                            className="hidden"
+                            multiple
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            onChange={(e) => {
+                              const files = Array.from(e.target.files || []);
+                              setCertificateFiles(prev => [...prev, ...files]);
+                            }}
+                          />
+                          <div 
+                            onClick={() => document.getElementById("certificate-upload-input")?.click()}
+                            className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-indigo-500 transition-colors cursor-pointer group"
+                          >
+                            <Upload className="w-6 h-6 text-gray-400 mx-auto mb-2 group-hover:text-indigo-500" />
+                            <p className="text-sm text-gray-600">Upload Certificates</p>
+                            <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG up to 10MB</p>
+                          </div>
+                          {certificateFiles.length > 0 && (
+                            <ul className="mt-2 space-y-1">
+                              {certificateFiles.map((f, i) => (
+                                <li key={i} className="text-xs text-gray-600 flex items-center justify-between bg-gray-50 p-2 rounded">
+                                  <span className="truncate max-w-[200px]">{f.name}</span>
+                                  <button 
+                                    type="button" 
+                                    onClick={() => setCertificateFiles(prev => prev.filter((_, idx) => idx !== i))}
+                                    className="text-red-500 hover:text-red-700"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+
+                        {/* Other Documents */}
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium text-gray-500 uppercase">Other Documents</label>
+                          <input
+                            type="file"
+                            id="other-docs-upload-input"
+                            className="hidden"
+                            multiple
+                            onChange={(e) => {
+                              const files = Array.from(e.target.files || []);
+                              setOtherDocuments(prev => [...prev, ...files]);
+                            }}
+                          />
+                          <div 
+                            onClick={() => document.getElementById("other-docs-upload-input")?.click()}
+                            className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-indigo-500 transition-colors cursor-pointer group"
+                          >
+                            <Upload className="w-6 h-6 text-gray-400 mx-auto mb-2 group-hover:text-indigo-500" />
+                            <p className="text-sm text-gray-600">Upload Other Documents</p>
+                            <p className="text-xs text-gray-400 mt-1">Max 10MB per file</p>
+                          </div>
+                          {otherDocuments.length > 0 && (
+                            <ul className="mt-2 space-y-1">
+                              {otherDocuments.map((f, i) => (
+                                <li key={i} className="text-xs text-gray-600 flex items-center justify-between bg-gray-50 p-2 rounded">
+                                  <span className="truncate max-w-[200px]">{f.name}</span>
+                                  <button 
+                                    type="button" 
+                                    onClick={() => setOtherDocuments(prev => prev.filter((_, idx) => idx !== i))}
+                                    className="text-red-500 hover:text-red-700"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1670,17 +1973,48 @@ export function AddEmployee() {
 
               {/* Form Actions */}
               <div className="bg-white border-t border-gray-200 px-8 py-4 flex items-center justify-between rounded-b-lg">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate("/employee-management")}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSubmitting} className="gap-2">
-                  {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {id ? "Save" : "Add Employee"}
-                </Button>
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => navigate("/employee-management")}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    Cancel
+                  </Button>
+                  
+                  {activeSection !== sections[0].id && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handlePrevious}
+                      className="gap-2"
+                    >
+                      Previous
+                    </Button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {activeSection !== sections[sections.length - 1].id ? (
+                    <Button
+                      type="button"
+                      onClick={handleNext}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 min-w-[100px]"
+                    >
+                      Next
+                    </Button>
+                  ) : (
+                    <Button 
+                      type="submit" 
+                      disabled={isSubmitting} 
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 min-w-[140px]"
+                    >
+                      {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                      {id ? "Update Employee" : "Save Employee"}
+                    </Button>
+                  )}
+                </div>
               </div>
             </form>
           </div>

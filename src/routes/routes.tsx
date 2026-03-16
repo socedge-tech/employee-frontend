@@ -14,6 +14,7 @@ import { AddDepartment } from "../pages/AddDepartment.tsx";
 import { AddEmployee } from "../pages/AddEmployee.tsx";
 import { ViewEmployee } from "../pages/ViewEmployee.tsx";
 import { RolesPermissions } from "../pages/RolesPermissions.tsx";
+import { UserProfile } from "../pages/UserProfile.tsx";
 
 export default function AppRoutes() {
   return (
@@ -36,6 +37,7 @@ export default function AppRoutes() {
         <Route path="/employee-management/add-employee" element={<AddEmployee />} />
         <Route path="/employee-management/edit-employee/:id" element={<AddEmployee />} />
         <Route path="/roles-permissions" element={<RolesPermissions />} />
+        <Route path="/profile" element={<UserProfile />} />
       </Route>
 
       {/* Fallback to login or dashboard could be added here */}

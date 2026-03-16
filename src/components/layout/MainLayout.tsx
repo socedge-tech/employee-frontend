@@ -9,7 +9,7 @@ export function MainLayout() {
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex flex-col flex-1 overflow-hidden !pt-0 !mt-0 bg-white">
         <TopNav />
         <main className="flex-1 overflow-auto p-8">
           <Outlet />

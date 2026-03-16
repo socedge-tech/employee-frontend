@@ -119,18 +119,23 @@ export function useEmployees() {
 
       // Extract unique branch/location names
       const locations = new Set<string>();
-      (orgs || []).forEach(org => {
-        (org.branches || org.branch || []).forEach((b: any) => {
-          if (b.branch_name) locations.add(b.branch_name);
-          if (b.location_name) locations.add(b.location_name);
+      if (Array.isArray(orgs)) {
+        orgs.forEach(org => {
+          const branches = org.branches || org.branch || [];
+          if (Array.isArray(branches)) {
+            branches.forEach((b: any) => {
+              if (b.branch_name) locations.add(b.branch_name);
+              if (b.location_name) locations.add(b.location_name);
+            });
+          }
+          if (org.city) locations.add(org.city);
+          if (org.country) locations.add(org.country);
         });
-        if (org.city) locations.add(org.city);
-        if (org.country) locations.add(org.country);
-      });
+      }
 
       setDynOptions({
-        departments: deps.map(d => d.department_name),
-        roles: roles.map(r => r.role_name),
+        departments: Array.isArray(deps) ? deps.map(d => d.department_name) : [],
+        roles: Array.isArray(roles) ? roles.map(r => r.role_name) : [],
         locations: Array.from(locations).filter(Boolean) as string[]
       });
     } catch (error) {

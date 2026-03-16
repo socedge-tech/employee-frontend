@@ -13,6 +13,7 @@ import {
   Info
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { toTitleCase } from "../utils/stringUtils";
 import { Card, CardHeader, CardContent, CardTitle } from "../components/ui/card.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { 
@@ -89,12 +90,17 @@ export function RolesPermissions() {
       toast.error("Role name is required");
       return;
     }
+    const formattedRole = {
+      ...roleForm,
+      role_name: toTitleCase(roleForm.role_name),
+      description: toTitleCase(roleForm.description)
+    };
     try {
       if (isEditingRole && selectedRole) {
-        await updateRole(selectedRole.id, roleForm);
+        await updateRole(selectedRole.id, formattedRole);
         toast.success("Role updated successfully");
       } else {
-        await createRole(roleForm);
+        await createRole(formattedRole);
         toast.success("Role created successfully");
       }
       setShowRoleModal(false);
@@ -155,7 +161,7 @@ export function RolesPermissions() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+            <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
               <ArrowLeft className="w-5 h-5 text-gray-600" />
             </button>
             <div>

@@ -34,6 +34,7 @@ export const rolePermissions: PermissionMap = {
     PermissionVal.VIEW_EMAIL_MANAGEMENT,
     PermissionVal.VIEW_NOTIFY_MANAGEMENT,
     PermissionVal.MANAGE_SYSTEM_SETTINGS,
+    PermissionVal.VIEW_OWN_PROFILE,
   ],
   
   [UserRoleVal.ADMIN]: [
@@ -61,6 +62,7 @@ export const rolePermissions: PermissionMap = {
     PermissionVal.PROCESS_PAYROLL,
     PermissionVal.VIEW_CRM,
     PermissionVal.VIEW_SYSTEM_SETTINGS,
+    PermissionVal.VIEW_OWN_PROFILE,
   ],
   
   [UserRoleVal.FINANCE]: [

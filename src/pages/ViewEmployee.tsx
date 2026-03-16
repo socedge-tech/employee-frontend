@@ -85,15 +85,12 @@ export function ViewEmployee() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-4">
-          <Button
-            variant="outline"
-            size="sm"
+          <button
             onClick={() => navigate("/employee-management")}
-            className="gap-2"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" />
-            Back
-          </Button>
+            <ArrowLeft className="w-5 h-5 text-gray-600" />
+          </button>
           <div>
             <div className="flex items-center gap-3">
               <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium text-xl shadow-sm">

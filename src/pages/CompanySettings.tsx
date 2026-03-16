@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
+import { toTitleCase } from "../utils/stringUtils";
 import { ArrowLeft, Building2, Save, MapPin, Briefcase, Calendar, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "../components/ui/button.tsx";
 import { toast } from "sonner";
 import { getOrganizations, createOrganization, updateOrganization } from "../api/organizations.ts";
 import { getDepartments } from "../api/departments.ts";
-import { getEmployees } from "../api/employees.ts";
 import { ProgressBar } from "../components/company/ProgressBar.tsx";
 import { Permission } from "../types/rbac.ts";
 import { CompanyStructureForm } from "../components/company/CompanyStructureForm.tsx";
@@ -120,7 +120,6 @@ export function CompanySettings() {
   const [isLoading, setIsLoading] = useState(true);
   const [orgId, setOrgId] = useState<number | null>(null);
   const [departmentsCount, setDepartmentsCount] = useState<number>(0);
-  const [employeesCount, setEmployeesCount] = useState<number>(0);
   
   const { can } = usePermissions();
   const isReadOnly = !can(Permission.EDIT_COMPANY_STRUCTURE);
@@ -168,7 +167,7 @@ export function CompanySettings() {
           const mainOrg = organization;
           setOrgId(mainOrg.id);
           setCompanyData({
-            legalEntityName: mainOrg.legal_entity_name || mainOrg.entity_name || "",
+            legalEntityName: toTitleCase(mainOrg.legal_entity_name || mainOrg.entity_name || ""),
             companyCode: mainOrg.company_code || "",
             taxRegistrationNumber: mainOrg.tax_registration_number || "",
             companyType: mainOrg.company_type || "",
@@ -184,35 +183,35 @@ export function CompanySettings() {
               other: mainOrg.other_tax_id || "",
             },
             legalAddress: {
-              street: mainOrg.legal_address || mainOrg.address || "",
-              city: mainOrg.city || "",
-              state: mainOrg.state || "",
+              street: toTitleCase(mainOrg.legal_address || mainOrg.address || ""),
+              city: toTitleCase(mainOrg.city || ""),
+              state: toTitleCase(mainOrg.state || ""),
               zipCode: mainOrg.zip || "",
-              country: mainOrg.country || "",
+              country: toTitleCase(mainOrg.country || ""),
             },
             departments: [],
-            businessUnits: mainOrg.business_unit ? mainOrg.business_unit.split(",").map((i: string) => i.trim()) : [],
-            divisions: mainOrg.division ? mainOrg.division.split(",").map((i: string) => i.trim()) : [],
-            costCenters: mainOrg.cost_center ? mainOrg.cost_center.split(",").map((i: string) => i.trim()) : [],
+            businessUnits: mainOrg.business_unit ? mainOrg.business_unit.split(",").map((i: string) => toTitleCase(i.trim())) : [],
+            divisions: mainOrg.division ? mainOrg.division.split(",").map((i: string) => toTitleCase(i.trim())) : [],
+            costCenters: mainOrg.cost_center ? mainOrg.cost_center.split(",").map((i: string) => toTitleCase(i.trim())) : [],
 
             locations: (mainOrg.branches || mainOrg.branch || []).map((branch: any) => ({
               id: (branch.id || Date.now()).toString(),
               locationCode: branch.location_code || branch.branch_code || "",
-              locationName: branch.location_name || branch.branch_name || "",
+              locationName: toTitleCase(branch.location_name || branch.branch_name || ""),
               address: {
-                street: branch.street_address || branch.address || "",
-                city: branch.city || "",
-                state: branch.state || "",
+                street: toTitleCase(branch.street_address || branch.address || ""),
+                city: toTitleCase(branch.city || ""),
+                state: toTitleCase(branch.state || ""),
                 zipCode: branch.zip_code || branch.zip || "",
-                country: branch.country || "",
+                country: toTitleCase(branch.country || ""),
               },
               timeZone: branch.time_zone || "",
-              taxLocation: branch.tax_location || "",
+              taxLocation: toTitleCase(branch.tax_location || ""),
               gst: branch.gst || "",
             })),
-            payrollStatutoryUnit: mainOrg.payroll_statutory_unit || "",
-            legalEmployer: mainOrg.legal_employer || "",
-            legislativeDataGroup: mainOrg.legislative_data_group || "",
+            payrollStatutoryUnit: toTitleCase(mainOrg.payroll_statutory_unit || ""),
+            legalEmployer: toTitleCase(mainOrg.legal_employer || ""),
+            legislativeDataGroup: toTitleCase(mainOrg.legislative_data_group || ""),
             payFrequency: mainOrg.pay_frequency || "Monthly",
             workingCalendar: {
               standardHours: mainOrg.standard_working_hours_per_week || 40,
@@ -229,12 +228,6 @@ export function CompanySettings() {
           console.error("Failed to load departments count", e);
         }
 
-        try {
-          const emps = await getEmployees();
-          setEmployeesCount(Array.isArray(emps) ? emps.length : 0);
-        } catch (e) {
-          console.error("Failed to load employees count", e);
-        }
       } catch (error) {
         console.error("Failed to load organization", error);
       } finally {
@@ -322,8 +315,8 @@ export function CompanySettings() {
     //   branch_name, branch_code, address (street), zip (not zip_code)
     //   time_zone, tax_location, city, state, country
     const apiPayload = {
-      entity_name: companyData.legalEntityName,
-      legal_entity_name: companyData.legalEntityName,
+      entity_name: toTitleCase(companyData.legalEntityName),
+      legal_entity_name: toTitleCase(companyData.legalEntityName),
       company_code: companyData.companyCode,
       company_type: companyData.companyType,
       // Flat column stays in sync with the active country's tax ID
@@ -338,19 +331,19 @@ export function CompanySettings() {
       ein:          normalizedTaxNumbers.ein   || "",
       siret:        normalizedTaxNumbers.siret || "",
       other_tax_id: (companyData.taxRegistrationNumbers.other || "").trim(),
-      address: companyData.legalAddress.street,
-      legal_address: companyData.legalAddress.street,
-      city: companyData.legalAddress.city,
-      state: companyData.legalAddress.state,
-      country: companyData.legalAddress.country,
+      address: toTitleCase(companyData.legalAddress.street),
+      legal_address: toTitleCase(companyData.legalAddress.street),
+      city: toTitleCase(companyData.legalAddress.city),
+      state: toTitleCase(companyData.legalAddress.state),
+      country: toTitleCase(companyData.legalAddress.country),
       zip: companyData.legalAddress.zipCode,
-      business_unit: (companyData.businessUnits || []).filter(v => v && v.trim()).join(", "),
-      division: (companyData.divisions || []).filter(v => v && v.trim()).join(", "),
-      cost_center: (companyData.costCenters || []).filter(v => v && v.trim()).join(", "),
+      business_unit: (companyData.businessUnits || []).filter(v => v && v.trim()).map(v => toTitleCase(v.trim())).join(", "),
+      division: (companyData.divisions || []).filter(v => v && v.trim()).map(v => toTitleCase(v.trim())).join(", "),
+      cost_center: (companyData.costCenters || []).filter(v => v && v.trim()).map(v => toTitleCase(v.trim())).join(", "),
 
-      payroll_statutory_unit: companyData.payrollStatutoryUnit,
-      legal_employer: companyData.legalEmployer,
-      legislative_data_group: companyData.legislativeDataGroup,
+      payroll_statutory_unit: toTitleCase(companyData.payrollStatutoryUnit),
+      legal_employer: toTitleCase(companyData.legalEmployer),
+      legislative_data_group: toTitleCase(companyData.legislativeDataGroup),
       pay_frequency: companyData.payFrequency,
       standard_working_hours_per_week: companyData.workingCalendar.standardHours,
       working_days: companyData.workingCalendar.workingDays,
@@ -363,15 +356,15 @@ export function CompanySettings() {
         
         return {
           ...(isDbId ? { id: numId } : {}),
-          branch_name: loc.locationName,
+          branch_name: toTitleCase(loc.locationName),
           branch_code: loc.locationCode,
-          address: loc.address.street,
-          city: loc.address.city,
-          state: loc.address.state,
+          address: toTitleCase(loc.address.street),
+          city: toTitleCase(loc.address.city),
+          state: toTitleCase(loc.address.state),
           zip: loc.address.zipCode,
-          country: loc.address.country,
+          country: toTitleCase(loc.address.country),
           time_zone: loc.timeZone,
-          tax_location: loc.taxLocation,
+          tax_location: toTitleCase(loc.taxLocation),
           gst: loc.gst || "",
         };
       }),
@@ -479,9 +472,12 @@ export function CompanySettings() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/company-structure")} className="hover:-translate-y-1 hover:scale-105 transition-all duration-200">
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
+          <button 
+            onClick={() => navigate("/company-structure")} 
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-600" />
+          </button>
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-semibold text-gray-900">Company Structure Settings</h1>

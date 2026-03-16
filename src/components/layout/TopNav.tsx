@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Search, Bell, Plus, Moon, Sun, ChevronDown, User, X } from "lucide-react";
+import { Search, Bell, ChevronDown, User, X } from "lucide-react";
 import { Button } from "../ui/button.tsx";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.tsx";
-import { RoleSwitcher } from "../Auth/RoleSwitcher.tsx";
 
 interface FamilyMember {
   name: string;
@@ -37,13 +36,17 @@ interface CompensationSplit {
 }
 
 export function TopNav() {
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const [darkMode, setDarkMode] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showAddEmployee, setShowAddEmployee] = useState(false);
   const [activeSection, setActiveSection] = useState("personal");
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
   
   const [formData, setFormData] = useState({
     // Personal Information
@@ -178,7 +181,7 @@ export function TopNav() {
   ];
 
   return (
-    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
+    <header className="h-16 w-full !mt-0 !m-0 bg-white border-b border-gray-200 flex items-center justify-between px-6">
       <div className="flex-1 max-w-xl">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -191,22 +194,6 @@ export function TopNav() {
       </div>
 
       <div className="flex items-center gap-4">
-        <RoleSwitcher />
-        
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate("/engagement/survey-builder")}>
-            <Plus className="w-4 h-4" />
-            Create Survey
-          </Button>
-        </div>
-
-        <button
-          onClick={() => setDarkMode(!darkMode)}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-        </button>
-
         <div className="relative">
           <button
             onClick={() => setShowNotifications(!showNotifications)}
@@ -254,11 +241,24 @@ export function TopNav() {
           </button>
           {showProfile && (
             <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 p-2 z-50">
-              <button className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-lg text-sm">Profile</button>
+              <button 
+                onClick={() => {
+                  navigate("/profile");
+                  setShowProfile(false);
+                }}
+                className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-lg text-sm"
+              >
+                Profile
+              </button>
               <button className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-lg text-sm">Switch to User View</button>
               <button className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-lg text-sm">Settings</button>
               <hr className="my-2" />
-              <button className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-lg text-sm text-red-600">Logout</button>
+              <button 
+                onClick={handleLogout}
+                className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-lg text-sm text-red-600"
+              >
+                Logout
+              </button>
             </div>
           )}
         </div>
