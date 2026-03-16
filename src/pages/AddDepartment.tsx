@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
-import { toTitleCase } from "../utils/stringUtils";
+import { capitalizeFirstLetter } from "../utils/stringUtils";
 import { ArrowLeft, Save, Plus, Trash2, Users, Search, X, Shield, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardContent, CardTitle } from "../components/ui/card.tsx";
 import { Button } from "../components/ui/button.tsx";
@@ -168,16 +168,16 @@ export function AddDepartment() {
     }
 
     const payload: any = {
-      department_name: toTitleCase(departmentName),
+      department_name: capitalizeFirstLetter(departmentName),
       department_code: departmentCode,
-      description: toTitleCase(description),
+      description: capitalizeFirstLetter(description),
       branch_id: selectedBranchId ? parseInt(selectedBranchId, 10) : undefined,
       manager_id: manager?.id ? parseInt(manager.id, 10) : undefined,
       parent_department_id: parentDepartment !== "None" ? parseInt(parentDepartment as string, 10) : null,
       annual_budget: budget ? parseFloat(budget) : 0,
       teams: teams.map(t => ({
-        team_name: toTitleCase(t.name),
-        description: toTitleCase(t.description),
+        team_name: capitalizeFirstLetter(t.name),
+        description: capitalizeFirstLetter(t.description),
         team_lead_id: t.leadId ? parseInt(t.leadId, 10) : null,
         team_members: t.members.map(mId => parseInt(mId, 10))
       })),
@@ -308,7 +308,7 @@ export function AddDepartment() {
                       <input
                         type="text"
                         value={departmentName}
-                        onChange={(e) => setDepartmentName(e.target.value)}
+                        onChange={(e) => setDepartmentName(capitalizeFirstLetter(e.target.value))}
                         placeholder="e.g., Engineering"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
@@ -333,7 +333,7 @@ export function AddDepartment() {
                     </label>
                     <textarea
                       value={description}
-                      onChange={(e) => setDescription(e.target.value)}
+                      onChange={(e) => setDescription(capitalizeFirstLetter(e.target.value))}
                       rows={3}
                       placeholder="Brief description of the department's purpose and responsibilities..."
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -892,7 +892,7 @@ export function AddDepartment() {
                   <input
                     type="text"
                     value={teamName}
-                    onChange={(e) => setTeamName(e.target.value)}
+                    onChange={(e) => setTeamName(capitalizeFirstLetter(e.target.value))}
                     placeholder="e.g., Frontend Team"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                   />
@@ -904,7 +904,7 @@ export function AddDepartment() {
                   </label>
                   <textarea
                     value={teamDescription}
-                    onChange={(e) => setTeamDescription(e.target.value)}
+                    onChange={(e) => setTeamDescription(capitalizeFirstLetter(e.target.value))}
                     rows={3}
                     placeholder="Brief description of the team's responsibilities..."
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all resize-none"

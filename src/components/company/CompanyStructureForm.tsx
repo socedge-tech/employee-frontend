@@ -11,6 +11,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { Button } from "../ui/button";
+import { capitalizeFirstLetter } from "../../utils/stringUtils";
 
 interface CompanyStructureFormProps {
   companyData: any;
@@ -75,7 +76,7 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                     !isReadOnly &&
                     setCompanyData({
                       ...companyData,
-                      legalEntityName: e.target.value,
+                      legalEntityName: capitalizeFirstLetter(e.target.value),
                     })
                   }
                   readOnly={isReadOnly}
@@ -147,7 +148,7 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                     !isReadOnly &&
                     setCompanyData({
                       ...companyData,
-                      jurisdiction: e.target.value,
+                      jurisdiction: capitalizeFirstLetter(e.target.value),
                     })
                   }
                   readOnly={isReadOnly}
@@ -213,7 +214,7 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                   value={companyData.legalAddress.street}
                   onChange={(e) =>
                     !isReadOnly &&
-                    updateField("legalAddress", "street", e.target.value)
+                    updateField("legalAddress", "street", capitalizeFirstLetter(e.target.value))
                   }
                   readOnly={isReadOnly}
                   className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
@@ -230,7 +231,7 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                     value={companyData.legalAddress.city}
                     onChange={(e) =>
                       !isReadOnly &&
-                      updateField("legalAddress", "city", e.target.value)
+                      updateField("legalAddress", "city", capitalizeFirstLetter(e.target.value))
                     }
                     readOnly={isReadOnly}
                     className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
@@ -246,7 +247,7 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                     value={companyData.legalAddress.state}
                     onChange={(e) =>
                       !isReadOnly &&
-                      updateField("legalAddress", "state", e.target.value)
+                      updateField("legalAddress", "state", capitalizeFirstLetter(e.target.value))
                     }
                     readOnly={isReadOnly}
                     className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
@@ -384,7 +385,7 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                     updateField(
                       "taxRegistrationNumbers",
                       "other",
-                      e.target.value,
+                      capitalizeFirstLetter(e.target.value),
                     )
                   }
                   readOnly={isReadOnly}
@@ -573,7 +574,7 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                         value={loc.locationName}
                         onChange={(e) =>
                           !isReadOnly &&
-                          updateLocation(loc.id, "locationName", e.target.value)
+                          updateLocation(loc.id, "locationName", capitalizeFirstLetter(e.target.value))
                         }
                         readOnly={isReadOnly}
                         className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
@@ -607,7 +608,7 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                           !isReadOnly &&
                           updateLocation(loc.id, "address", {
                             ...loc.address,
-                            street: e.target.value,
+                            street: capitalizeFirstLetter(e.target.value),
                           })
                         }
                         readOnly={isReadOnly}
@@ -626,7 +627,7 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                           !isReadOnly &&
                           updateLocation(loc.id, "address", {
                             ...loc.address,
-                            city: e.target.value,
+                            city: capitalizeFirstLetter(e.target.value),
                           })
                         }
                         readOnly={isReadOnly}
@@ -645,7 +646,7 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                           !isReadOnly &&
                           updateLocation(loc.id, "address", {
                             ...loc.address,
-                            state: e.target.value,
+                            state: capitalizeFirstLetter(e.target.value),
                           })
                         }
                         readOnly={isReadOnly}
@@ -720,7 +721,7 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                         value={loc.taxLocation}
                         onChange={(e) =>
                           !isReadOnly &&
-                          updateLocation(loc.id, "taxLocation", e.target.value)
+                          updateLocation(loc.id, "taxLocation", capitalizeFirstLetter(e.target.value))
                         }
                         readOnly={isReadOnly}
                         className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent ${isReadOnly ? "bg-gray-50" : ""}`}
@@ -772,7 +773,7 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                   !isReadOnly &&
                   setCompanyData({
                     ...companyData,
-                    payrollStatutoryUnit: e.target.value,
+                    payrollStatutoryUnit: capitalizeFirstLetter(e.target.value),
                   })
                 }
                 readOnly={isReadOnly}
@@ -790,7 +791,7 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                   !isReadOnly &&
                   setCompanyData({
                     ...companyData,
-                    legalEmployer: e.target.value,
+                    legalEmployer: capitalizeFirstLetter(e.target.value),
                   })
                 }
                 readOnly={isReadOnly}
@@ -809,7 +810,7 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                   !isReadOnly &&
                   setCompanyData({
                     ...companyData,
-                    legislativeDataGroup: e.target.value,
+                    legislativeDataGroup: capitalizeFirstLetter(e.target.value),
                   })
                 }
                 readOnly={isReadOnly}

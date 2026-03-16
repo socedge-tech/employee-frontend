@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
-import { toTitleCase } from "../utils/stringUtils";
+import { capitalizeFirstLetter } from "../utils/stringUtils";
 import { ArrowLeft, Building2, Save, MapPin, Briefcase, Calendar, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "../components/ui/button.tsx";
 import { toast } from "sonner";
@@ -167,7 +167,7 @@ export function CompanySettings() {
           const mainOrg = organization;
           setOrgId(mainOrg.id);
           setCompanyData({
-            legalEntityName: toTitleCase(mainOrg.legal_entity_name || mainOrg.entity_name || ""),
+            legalEntityName: capitalizeFirstLetter(mainOrg.legal_entity_name || mainOrg.entity_name || ""),
             companyCode: mainOrg.company_code || "",
             taxRegistrationNumber: mainOrg.tax_registration_number || "",
             companyType: mainOrg.company_type || "",
@@ -183,35 +183,35 @@ export function CompanySettings() {
               other: mainOrg.other_tax_id || "",
             },
             legalAddress: {
-              street: toTitleCase(mainOrg.legal_address || mainOrg.address || ""),
-              city: toTitleCase(mainOrg.city || ""),
-              state: toTitleCase(mainOrg.state || ""),
+              street: capitalizeFirstLetter(mainOrg.legal_address || mainOrg.address || ""),
+              city: capitalizeFirstLetter(mainOrg.city || ""),
+              state: capitalizeFirstLetter(mainOrg.state || ""),
               zipCode: mainOrg.zip || "",
-              country: toTitleCase(mainOrg.country || ""),
+              country: capitalizeFirstLetter(mainOrg.country || ""),
             },
             departments: [],
-            businessUnits: mainOrg.business_unit ? mainOrg.business_unit.split(",").map((i: string) => toTitleCase(i.trim())) : [],
-            divisions: mainOrg.division ? mainOrg.division.split(",").map((i: string) => toTitleCase(i.trim())) : [],
-            costCenters: mainOrg.cost_center ? mainOrg.cost_center.split(",").map((i: string) => toTitleCase(i.trim())) : [],
+            businessUnits: mainOrg.business_unit ? mainOrg.business_unit.split(",").map((i: string) => capitalizeFirstLetter(i.trim())) : [],
+            divisions: mainOrg.division ? mainOrg.division.split(",").map((i: string) => capitalizeFirstLetter(i.trim())) : [],
+            costCenters: mainOrg.cost_center ? mainOrg.cost_center.split(",").map((i: string) => capitalizeFirstLetter(i.trim())) : [],
 
             locations: (mainOrg.branches || mainOrg.branch || []).map((branch: any) => ({
               id: (branch.id || Date.now()).toString(),
               locationCode: branch.location_code || branch.branch_code || "",
-              locationName: toTitleCase(branch.location_name || branch.branch_name || ""),
+              locationName: capitalizeFirstLetter(branch.location_name || branch.branch_name || ""),
               address: {
-                street: toTitleCase(branch.street_address || branch.address || ""),
-                city: toTitleCase(branch.city || ""),
-                state: toTitleCase(branch.state || ""),
+                street: capitalizeFirstLetter(branch.street_address || branch.address || ""),
+                city: capitalizeFirstLetter(branch.city || ""),
+                state: capitalizeFirstLetter(branch.state || ""),
                 zipCode: branch.zip_code || branch.zip || "",
-                country: toTitleCase(branch.country || ""),
+                country: capitalizeFirstLetter(branch.country || ""),
               },
               timeZone: branch.time_zone || "",
-              taxLocation: toTitleCase(branch.tax_location || ""),
+              taxLocation: capitalizeFirstLetter(branch.tax_location || ""),
               gst: branch.gst || "",
             })),
-            payrollStatutoryUnit: toTitleCase(mainOrg.payroll_statutory_unit || ""),
-            legalEmployer: toTitleCase(mainOrg.legal_employer || ""),
-            legislativeDataGroup: toTitleCase(mainOrg.legislative_data_group || ""),
+            payrollStatutoryUnit: capitalizeFirstLetter(mainOrg.payroll_statutory_unit || ""),
+            legalEmployer: capitalizeFirstLetter(mainOrg.legal_employer || ""),
+            legislativeDataGroup: capitalizeFirstLetter(mainOrg.legislative_data_group || ""),
             payFrequency: mainOrg.pay_frequency || "Monthly",
             workingCalendar: {
               standardHours: mainOrg.standard_working_hours_per_week || 40,
@@ -315,8 +315,8 @@ export function CompanySettings() {
     //   branch_name, branch_code, address (street), zip (not zip_code)
     //   time_zone, tax_location, city, state, country
     const apiPayload = {
-      entity_name: toTitleCase(companyData.legalEntityName),
-      legal_entity_name: toTitleCase(companyData.legalEntityName),
+      entity_name: capitalizeFirstLetter(companyData.legalEntityName),
+      legal_entity_name: capitalizeFirstLetter(companyData.legalEntityName),
       company_code: companyData.companyCode,
       company_type: companyData.companyType,
       // Flat column stays in sync with the active country's tax ID
@@ -331,19 +331,19 @@ export function CompanySettings() {
       ein:          normalizedTaxNumbers.ein   || "",
       siret:        normalizedTaxNumbers.siret || "",
       other_tax_id: (companyData.taxRegistrationNumbers.other || "").trim(),
-      address: toTitleCase(companyData.legalAddress.street),
-      legal_address: toTitleCase(companyData.legalAddress.street),
-      city: toTitleCase(companyData.legalAddress.city),
-      state: toTitleCase(companyData.legalAddress.state),
-      country: toTitleCase(companyData.legalAddress.country),
+      address: capitalizeFirstLetter(companyData.legalAddress.street),
+      legal_address: capitalizeFirstLetter(companyData.legalAddress.street),
+      city: capitalizeFirstLetter(companyData.legalAddress.city),
+      state: capitalizeFirstLetter(companyData.legalAddress.state),
+      country: capitalizeFirstLetter(companyData.legalAddress.country),
       zip: companyData.legalAddress.zipCode,
-      business_unit: (companyData.businessUnits || []).filter(v => v && v.trim()).map(v => toTitleCase(v.trim())).join(", "),
-      division: (companyData.divisions || []).filter(v => v && v.trim()).map(v => toTitleCase(v.trim())).join(", "),
-      cost_center: (companyData.costCenters || []).filter(v => v && v.trim()).map(v => toTitleCase(v.trim())).join(", "),
+      business_unit: (companyData.businessUnits || []).filter(v => v && v.trim()).map(v => capitalizeFirstLetter(v.trim())).join(", "),
+      division: (companyData.divisions || []).filter(v => v && v.trim()).map(v => capitalizeFirstLetter(v.trim())).join(", "),
+      cost_center: (companyData.costCenters || []).filter(v => v && v.trim()).map(v => capitalizeFirstLetter(v.trim())).join(", "),
 
-      payroll_statutory_unit: toTitleCase(companyData.payrollStatutoryUnit),
-      legal_employer: toTitleCase(companyData.legalEmployer),
-      legislative_data_group: toTitleCase(companyData.legislativeDataGroup),
+      payroll_statutory_unit: capitalizeFirstLetter(companyData.payrollStatutoryUnit),
+      legal_employer: capitalizeFirstLetter(companyData.legalEmployer),
+      legislative_data_group: capitalizeFirstLetter(companyData.legislativeDataGroup),
       pay_frequency: companyData.payFrequency,
       standard_working_hours_per_week: companyData.workingCalendar.standardHours,
       working_days: companyData.workingCalendar.workingDays,
@@ -356,15 +356,15 @@ export function CompanySettings() {
         
         return {
           ...(isDbId ? { id: numId } : {}),
-          branch_name: toTitleCase(loc.locationName),
+          branch_name: capitalizeFirstLetter(loc.locationName),
           branch_code: loc.locationCode,
-          address: toTitleCase(loc.address.street),
-          city: toTitleCase(loc.address.city),
-          state: toTitleCase(loc.address.state),
+          address: capitalizeFirstLetter(loc.address.street),
+          city: capitalizeFirstLetter(loc.address.city),
+          state: capitalizeFirstLetter(loc.address.state),
           zip: loc.address.zipCode,
-          country: toTitleCase(loc.address.country),
+          country: capitalizeFirstLetter(loc.address.country),
           time_zone: loc.timeZone,
-          tax_location: toTitleCase(loc.taxLocation),
+          tax_location: capitalizeFirstLetter(loc.taxLocation),
           gst: loc.gst || "",
         };
       }),

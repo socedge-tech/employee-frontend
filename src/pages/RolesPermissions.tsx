@@ -13,7 +13,7 @@ import {
   Info
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { toTitleCase } from "../utils/stringUtils";
+import { capitalizeFirstLetter } from "../utils/stringUtils";
 import { Card, CardHeader, CardContent, CardTitle } from "../components/ui/card.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { 
@@ -92,8 +92,8 @@ export function RolesPermissions() {
     }
     const formattedRole = {
       ...roleForm,
-      role_name: toTitleCase(roleForm.role_name),
-      description: toTitleCase(roleForm.description)
+      role_name: capitalizeFirstLetter(roleForm.role_name),
+      description: capitalizeFirstLetter(roleForm.description)
     };
     try {
       if (isEditingRole && selectedRole) {
@@ -346,7 +346,7 @@ export function RolesPermissions() {
                     placeholder="e.g., HR Manager"
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     value={roleForm.role_name}
-                    onChange={(e) => setRoleForm({ ...roleForm, role_name: e.target.value })}
+                    onChange={(e) => setRoleForm({ ...roleForm, role_name: capitalizeFirstLetter(e.target.value) })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -356,7 +356,7 @@ export function RolesPermissions() {
                     rows={3}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
                     value={roleForm.description}
-                    onChange={(e) => setRoleForm({ ...roleForm, description: e.target.value })}
+                    onChange={(e) => setRoleForm({ ...roleForm, description: capitalizeFirstLetter(e.target.value) })}
                   />
                 </div>
                 <div className="flex items-center gap-2 p-3 bg-blue-50 text-blue-700 rounded-lg text-xs">

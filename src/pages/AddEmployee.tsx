@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { toTitleCase } from "../utils/stringUtils";
+import { capitalizeFirstLetter } from "../utils/stringUtils";
 import { ArrowLeft, Upload, Trash2, PlusCircle, Loader2 } from "lucide-react";
 import { Button } from "../components/ui/button.tsx";
 import { getDepartments } from "../api/departments.ts";
@@ -371,13 +371,31 @@ export function AddEmployee() {
   ];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type, tagName } = e.target;
     
+    // Fields to skip capitalization (IDs, emails, phones, numbers, etc.)
+    const skipCapitalization = [
+      "primaryEmail", "secondaryEmail", "emergencyContactEmail",
+      "primaryPhone", "secondaryPhone", "emergencyContactPhone",
+      "primaryZip", "secondaryZip", "employeeId",
+      "passportNumber", "drivingLicense", "socialSecurityNumber", "taxId",
+      "accountNumber", "routingNumber", "dateOfBirth", "passportExpiry", 
+      "licenseExpiry", "startDate", "probationPeriod", "baseSalary"
+    ];
+
+    let formattedValue = value;
+    if (
+      !skipCapitalization.includes(name) && 
+      (type === "text" || tagName === "TEXTAREA")
+    ) {
+      formattedValue = capitalizeFirstLetter(value);
+    }
+
     if (name === "location") {
-      if (value === "Remote") {
+      if (formattedValue === "Remote") {
         setFormData(prev => ({ ...prev, location: "Remote", branchId: "remote" }));
       } else {
-        const selectedBranch = locationsList.find(loc => loc.id.toString() === value);
+        const selectedBranch = locationsList.find(loc => loc.id.toString() === formattedValue);
         if (selectedBranch) {
           setFormData(prev => ({ 
             ...prev, 
@@ -391,7 +409,7 @@ export function AddEmployee() {
       return;
     }
     
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => ({ ...prev, [name]: formattedValue }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -411,12 +429,12 @@ export function AddEmployee() {
       status: true,
       
       // UserDetail Table Fields
-      first_name: toTitleCase(formData.firstName),
-      last_name: toTitleCase(formData.lastName),
-      middle_name: toTitleCase(formData.middleName),
+      first_name: capitalizeFirstLetter(formData.firstName),
+      last_name: capitalizeFirstLetter(formData.lastName),
+      middle_name: capitalizeFirstLetter(formData.middleName),
       date_of_birth: formData.dateOfBirth,
       gender: formData.gender,
-      nationality: toTitleCase(formData.nationality),
+      nationality: capitalizeFirstLetter(formData.nationality),
       marital_status: formData.maritalStatus,
       blood_group: formData.bloodGroup,
       
@@ -424,30 +442,30 @@ export function AddEmployee() {
       secondary_phone: formData.secondaryPhone,
       secondary_email: formData.secondaryEmail,
       
-      address: toTitleCase(formData.primaryAddress),
-      city: toTitleCase(formData.primaryCity),
-      state: toTitleCase(formData.primaryState),
+      address: capitalizeFirstLetter(formData.primaryAddress),
+      city: capitalizeFirstLetter(formData.primaryCity),
+      state: capitalizeFirstLetter(formData.primaryState),
       zip: formData.primaryZip,
-      country: toTitleCase(formData.primaryCountry),
+      country: capitalizeFirstLetter(formData.primaryCountry),
       
-      secondary_address: toTitleCase(formData.secondaryAddress),
-      secondary_city: toTitleCase(formData.secondaryCity),
-      secondary_state: toTitleCase(formData.secondaryState),
+      secondary_address: capitalizeFirstLetter(formData.secondaryAddress),
+      secondary_city: capitalizeFirstLetter(formData.secondaryCity),
+      secondary_state: capitalizeFirstLetter(formData.secondaryState),
       secondary_zip: formData.secondaryZip,
-      secondary_country: toTitleCase(formData.secondaryCountry),
+      secondary_country: capitalizeFirstLetter(formData.secondaryCountry),
       
-      emergency_contact: toTitleCase(formData.emergencyContactName),
+      emergency_contact: capitalizeFirstLetter(formData.emergencyContactName),
       emergency_relationship: formData.emergencyContactRelationship,
       emergency_phone: formData.emergencyContactPhone,
       emergency_email: formData.emergencyContactEmail,
       
       employee_id: formData.employeeId,
       department_id: formData.department ? parseInt(formData.department, 10) : undefined,
-      job_role: toTitleCase(rolesList.find(r => r.id.toString() === formData.role)?.role_name || formData.role),
+      job_role: capitalizeFirstLetter(rolesList.find(r => r.id.toString() === formData.role)?.role_name || formData.role),
       role_id: formData.role ? parseInt(formData.role, 10) : undefined,
       employment_type: formData.employeeType,
       start_date: formData.startDate,
-      work_location: toTitleCase(formData.location),
+      work_location: capitalizeFirstLetter(formData.location),
       branch_id: formData.branchId && formData.branchId !== "remote" ? parseInt(formData.branchId, 10) : undefined,
       work_schedule: formData.workSchedule,
       reporting_manager_id: formData.manager ? parseInt(formData.manager, 10) : undefined,
@@ -465,8 +483,8 @@ export function AddEmployee() {
       social_security_number: formData.socialSecurityNumber,
       tax_id_number: formData.taxId,
       
-      bank_name: toTitleCase(formData.bankName),
-      account_holder_name: toTitleCase(formData.accountHolderName),
+      bank_name: capitalizeFirstLetter(formData.bankName),
+      account_holder_name: capitalizeFirstLetter(formData.accountHolderName),
       account_number: formData.accountNumber,
       routing_number: formData.routingNumber,
       
@@ -528,8 +546,10 @@ export function AddEmployee() {
   };
 
   const updateFamilyMember = (index: number, field: keyof FamilyMember, value: string) => {
+    const skipFields = ["dateOfBirth", "phone"];
+    const formattedValue = skipFields.includes(field) ? value : capitalizeFirstLetter(value);
     const updated = [...familyMembers];
-    updated[index][field] = value;
+    updated[index][field] = formattedValue;
     setFamilyMembers(updated);
   };
 
@@ -545,8 +565,10 @@ export function AddEmployee() {
   };
 
   const updateEducation = (index: number, field: keyof Education, value: string) => {
+    const skipFields = ["startDate", "endDate", "grade"];
+    const formattedValue = skipFields.includes(field) ? value : capitalizeFirstLetter(value);
     const updated = [...educationHistory];
-    updated[index][field] = value;
+    updated[index][field] = formattedValue;
     setEducationHistory(updated);
   };
 
@@ -562,8 +584,10 @@ export function AddEmployee() {
   };
 
   const updateEmployment = (index: number, field: keyof Employment, value: string) => {
+    const skipFields = ["startDate", "endDate"];
+    const formattedValue = skipFields.includes(field) ? value : capitalizeFirstLetter(value);
     const updated = [...employmentHistory];
-    updated[index][field] = value;
+    updated[index][field] = formattedValue;
     setEmploymentHistory(updated);
   };
 
@@ -579,8 +603,10 @@ export function AddEmployee() {
   };
 
   const updateCompensationSplit = (index: number, field: keyof CompensationSplit, value: string) => {
+    const skipFields = ["amount", "frequency"];
+    const formattedValue = skipFields.includes(field) ? value : capitalizeFirstLetter(value);
     const updated = [...compensationSplits];
-    updated[index][field] = value;
+    updated[index][field] = formattedValue;
     setCompensationSplits(updated);
   };
 

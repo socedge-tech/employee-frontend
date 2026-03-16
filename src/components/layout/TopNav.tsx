@@ -3,6 +3,7 @@ import { Search, Bell, ChevronDown, User, X } from "lucide-react";
 import { Button } from "../ui/button.tsx";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.tsx";
+import { capitalizeFirstLetter } from "../../utils/stringUtils.ts";
 
 interface FamilyMember {
   name: string;
@@ -127,8 +128,18 @@ export function TopNav() {
   ]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type } = e.target;
+    
+    // Apply capitalization for text-based inputs, excluding email and specific fields
+    let processedValue = value;
+    if (type === 'text' || e.target.tagName === 'TEXTAREA') {
+      const skipCapitalization = ['primaryEmail', 'secondaryEmail', 'emergencyContactEmail', 'employeeId', 'passportNumber', 'socialSecurityNumber', 'taxId', 'accountNumber', 'routingNumber'];
+      if (!skipCapitalization.includes(name)) {
+        processedValue = capitalizeFirstLetter(value);
+      }
+    }
+    
+    setFormData(prev => ({ ...prev, [name]: processedValue }));
   };
   
   // helper functions removed for brevity
@@ -181,7 +192,7 @@ export function TopNav() {
   ];
 
   return (
-    <header className="h-16 w-full !mt-0 !m-0 bg-white border-b border-gray-200 flex items-center justify-between px-6">
+    <header className="h-16 w-full bg-white border-b border-gray-200 flex items-center justify-between px-6">
       <div className="flex-1 max-w-xl">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
