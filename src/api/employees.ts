@@ -55,7 +55,8 @@ export interface Employee {
 export const getEmployees = async (params: any = {}): Promise<Employee[]> => {
   try {
     const response = await axiosInstance.get("/employees", { params });
-    return response.data.data;
+    const data = response.data.data;
+    return Array.isArray(data) ? data : (data?.data ?? []);
   } catch (error: any) {
     throw error.response?.data || { message: "Failed to fetch employees" };
   }

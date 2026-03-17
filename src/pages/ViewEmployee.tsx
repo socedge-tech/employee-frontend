@@ -35,6 +35,7 @@ export function ViewEmployee() {
       try {
         setIsLoading(true);
         const data = await getEmployee(parseInt(id, 10));
+        console.log("Employee API Response:", data);
         setEmployee(data);
       } catch (error) {
         console.error("Failed to fetch employee", error);
@@ -62,6 +63,19 @@ export function ViewEmployee() {
     return status 
       ? "bg-green-100 text-green-700 border-green-300" 
       : "bg-gray-100 text-gray-700 border-gray-300";
+  };
+
+  const formatDate = (dateString?: string | Date) => {
+    if (!dateString) return "—";
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (e) {
+      return dateString.toString();
+    }
   };
 
   if (isLoading) {
@@ -100,13 +114,13 @@ export function ViewEmployee() {
                 <h1 className="text-2xl font-semibold text-gray-900">
                   {details?.first_name} {details?.middle_name || ""} {details?.last_name}
                 </h1>
-                <p className="text-gray-500">{details?.job_role || "Associate"} • {details?.department?.department_name || "Operations"}</p>
+                <p className="text-gray-500">{details?.job_role || "No Role Assigned"} • {details?.department?.department_name || "No Department"}</p>
                 <div className="flex items-center gap-2 mt-1">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(employee.status)}`}>
                     {employee.status ? "Active" : "Inactive"}
                   </span>
                   <span className="text-xs text-gray-500">
-                    Joined: {details?.start_date ? new Date(details.start_date).toLocaleDateString() : "N/A"}
+                    Joined: {formatDate(details?.start_date)}
                   </span>
                 </div>
               </div>
@@ -158,7 +172,7 @@ export function ViewEmployee() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Date of Birth</label>
-                  <p className="text-sm text-gray-900 font-medium">{details?.date_of_birth || "—"}</p>
+                  <p className="text-sm text-gray-900 font-medium">{formatDate(details?.date_of_birth)}</p>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Gender</label>
@@ -206,7 +220,9 @@ export function ViewEmployee() {
                   <div className="md:col-span-2">
                     <label className="block text-xs font-medium text-gray-500 mb-1">Address</label>
                     <p className="text-sm text-gray-900 font-medium leading-relaxed">{details?.address || "—"}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{details?.city}, {details?.state}, {details?.country} - {details?.zip}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {[details?.city, details?.state, details?.country].filter(Boolean).join(", ")} {details?.zip ? `- ${details.zip}` : ""}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -252,31 +268,35 @@ export function ViewEmployee() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Department</label>
-                  <p className="text-sm text-gray-900 font-medium">{details?.department?.department_name || "Operations"}</p>
+                  <p className="text-sm text-gray-900 font-medium">{details?.department?.department_name || "—"}</p>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Role</label>
-                  <p className="text-sm text-gray-900 font-medium">{details?.job_role || "Associate"}</p>
+                  <p className="text-sm text-gray-900 font-medium">{details?.job_role || "—"}</p>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Location</label>
-                  <p className="text-sm text-gray-900 font-medium">{details?.work_location || "Remote"}</p>
+                  <p className="text-sm text-gray-900 font-medium">{details?.work_location || "—"}</p>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Start Date</label>
-                  <p className="text-sm text-gray-900 font-medium">{details?.start_date || "—"}</p>
+                  <p className="text-sm text-gray-900 font-medium">{formatDate(details?.start_date)}</p>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Employment Type</label>
-                  <p className="text-sm text-gray-900 font-medium">{details?.employment_type || "Full-time"}</p>
+                  <p className="text-sm text-gray-900 font-medium">{details?.employment_type || "—"}</p>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Manager</label>
-                  <p className="text-sm text-gray-900 font-medium">{details?.reporting_manager_name || "—"}</p>
+                  <p className="text-sm text-gray-900 font-medium">
+                    {details?.reporting_manager?.details 
+                      ? `${details.reporting_manager.details.first_name} ${details.reporting_manager.details.last_name}` 
+                      : (details?.reporting_manager?.username || "—")}
+                  </p>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Work Schedule</label>
-                  <p className="text-sm text-gray-900 font-medium">{details?.work_schedule || "9 AM - 6 PM"}</p>
+                  <p className="text-sm text-gray-900 font-medium">{details?.work_schedule || "—"}</p>
                 </div>
               </div>
             </CardContent>
@@ -298,15 +318,23 @@ export function ViewEmployee() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Passport Expiry</label>
-                  <p className="text-sm text-gray-900 font-medium">{details?.passport_expiry || "—"}</p>
+                  <p className="text-sm text-gray-900 font-medium">{formatDate(details?.passport_expiry_date)}</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Driving License</label>
+                  <p className="text-sm text-gray-900 font-medium">{details?.driving_license_number || "—"}</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">License Expiry</label>
+                  <p className="text-sm text-gray-900 font-medium">{formatDate(details?.license_expiry_date)}</p>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Social Security Number</label>
-                  <p className="text-sm text-gray-900 font-medium">{details?.ssn || "—"}</p>
+                  <p className="text-sm text-gray-900 font-medium">{details?.social_security_number || "—"}</p>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Tax ID</label>
-                  <p className="text-sm text-gray-900 font-medium">{details?.tax_id || details?.pan_number || "—"}</p>
+                  <p className="text-sm text-gray-900 font-medium">{details?.tax_id_number || "—"}</p>
                 </div>
               </div>
             </CardContent>
@@ -333,15 +361,15 @@ export function ViewEmployee() {
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                <span className="text-gray-900 truncate">{details?.work_location || "Headquarters"}</span>
+                <span className="text-gray-900 truncate">{details?.work_location || "Not Specified"}</span>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                <span className="text-gray-900 truncate">Joined: {details?.start_date || "N/A"}</span>
+                <span className="text-gray-900 truncate">Joined: {formatDate(details?.start_date)}</span>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <Building2 className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                <span className="text-gray-900 truncate">{details?.department?.department_name || "Company"}</span>
+                <span className="text-gray-900 truncate">{details?.department?.department_name || "No Department"}</span>
               </div>
             </CardContent>
           </Card>
@@ -393,11 +421,21 @@ export function ViewEmployee() {
                         {details?.account_number ? `****${details.account_number.slice(-4)}` : "—"}
                       </p>
                     </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Type</label>
-                      <p className="text-sm text-gray-900 font-medium">{details?.account_type || "Savings"}</p>
+                     <div>
+                       <label className="block text-xs font-medium text-gray-500 mb-1">Type</label>
+                       <p className="text-sm text-gray-900 font-medium">{details?.account_type || "—"}</p>
+                     </div>
+                  </div>
+                  {(details?.ifsc_number || details?.routing_number) && (
+                    <div className="pt-2">
+                       <label className="block text-xs font-medium text-gray-500 mb-1">
+                         {details?.ifsc_number ? "IFSC Code" : "Routing Number"}
+                       </label>
+                       <p className="text-sm text-gray-900 font-medium">
+                         {details?.ifsc_number || details?.routing_number}
+                       </p>
                     </div>
-                 </div>
+                  )}
               </CardContent>
             </Card>
           )}

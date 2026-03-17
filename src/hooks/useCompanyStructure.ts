@@ -24,7 +24,7 @@ export interface DepartmentNode {
 
 export interface MappedOrganization {
   id: number;
-  legalEntityName: string;
+  EntityName: string;
   companyCode: string;
   companyType?: string;
   currency?: string;
@@ -52,7 +52,7 @@ export interface MappedOrganization {
 function mapOrganization(org: Organization): MappedOrganization {
   return {
     id: org.id,
-    legalEntityName: org.entity_name,
+    EntityName: org.entity_name,
     companyCode: org.company_code,
     companyType: org.company_type,
     currency: org.currency,

@@ -63,7 +63,7 @@ export function useEmployees() {
           .filter(([_, v]) => v && v.length > 0)
           .map(([k, v]) => [k, v.join(",")])
       );
-      const data = await getEmployees(activeFilters);
+      const data = await getEmployees({ ...activeFilters, limit: 1000 });
       setEmployees(data ?? []);
     } catch {
       toast.error("Failed to load employees. Please try again.");
@@ -167,6 +167,7 @@ export function useEmployees() {
   const filteredEmployees = useMemo(() => {
     const search = searchTerm.toLowerCase();
 
+    if (!Array.isArray(employees)) return [];
     return employees.filter((emp) => {
       const name =
         `${emp.details?.first_name ?? ""} ${emp.details?.last_name ?? ""}`.toLowerCase();

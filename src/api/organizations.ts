@@ -24,7 +24,7 @@ export interface Branch {
 export interface Organization {
   id: number;
   entity_name: string;
-  legal_entity_name?: string; // Corrected column name per user request
+  entity_name?: string; // Corrected column name per user request
   company_code: string;
   company_type?: string;
   jurisdiction?: string;
@@ -88,9 +88,9 @@ export const updateOrganization = async (id: number, data: any): Promise<Organiz
 };
 
 export const deleteOrganization = async (id: number): Promise<void> => {
-    try {
-      await axiosInstance.delete(`/organizations/${id}`);
-    } catch (error: any) {
-      throw error.response?.data || { message: "Failed to delete organization" };
-    }
-  };
+  try {
+    await axiosInstance.delete(`/organizations/${id}`);
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to delete organization" };
+  }
+};

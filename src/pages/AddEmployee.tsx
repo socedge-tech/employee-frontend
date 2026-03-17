@@ -423,101 +423,90 @@ export function AddEmployee() {
       return;
     }
     
-    const completeData: any = {
+    // Create a clean payload object with correct data types
+    const payload: any = {
       // User Table Fields
       email: formData.primaryEmail,
-      status: true,
+      status: true, // Boolean
+      username: formData.primaryEmail.split('@')[0],
       
       // UserDetail Table Fields
       first_name: capitalizeFirstLetter(formData.firstName),
       last_name: capitalizeFirstLetter(formData.lastName),
-      middle_name: capitalizeFirstLetter(formData.middleName),
-      date_of_birth: formData.dateOfBirth,
-      gender: formData.gender,
-      nationality: capitalizeFirstLetter(formData.nationality),
-      marital_status: formData.maritalStatus,
-      blood_group: formData.bloodGroup,
+      middle_name: capitalizeFirstLetter(formData.middleName) || undefined,
+      date_of_birth: formData.dateOfBirth || undefined,
+      gender: formData.gender || undefined,
+      nationality: capitalizeFirstLetter(formData.nationality) || undefined,
+      marital_status: formData.maritalStatus || undefined,
+      blood_group: formData.bloodGroup || undefined,
       
-      phone: formData.primaryPhone,
-      secondary_phone: formData.secondaryPhone,
-      secondary_email: formData.secondaryEmail,
+      phone: formData.primaryPhone || undefined,
+      secondary_phone: formData.secondaryPhone || undefined,
+      secondary_email: (formData.secondaryEmail && formData.secondaryEmail.includes('@')) ? formData.secondaryEmail : null,
       
-      address: capitalizeFirstLetter(formData.primaryAddress),
-      city: capitalizeFirstLetter(formData.primaryCity),
-      state: capitalizeFirstLetter(formData.primaryState),
-      zip: formData.primaryZip,
-      country: capitalizeFirstLetter(formData.primaryCountry),
+      address: capitalizeFirstLetter(formData.primaryAddress) || undefined,
+      city: capitalizeFirstLetter(formData.primaryCity) || undefined,
+      state: capitalizeFirstLetter(formData.primaryState) || undefined,
+      zip: formData.primaryZip || undefined,
+      country: capitalizeFirstLetter(formData.primaryCountry) || undefined,
       
-      secondary_address: capitalizeFirstLetter(formData.secondaryAddress),
-      secondary_city: capitalizeFirstLetter(formData.secondaryCity),
-      secondary_state: capitalizeFirstLetter(formData.secondaryState),
-      secondary_zip: formData.secondaryZip,
-      secondary_country: capitalizeFirstLetter(formData.secondaryCountry),
+      secondary_address: capitalizeFirstLetter(formData.secondaryAddress) || undefined,
+      secondary_city: capitalizeFirstLetter(formData.secondaryCity) || undefined,
+      secondary_state: capitalizeFirstLetter(formData.secondaryState) || undefined,
+      secondary_zip: formData.secondaryZip || undefined,
+      secondary_country: capitalizeFirstLetter(formData.secondaryCountry) || undefined,
       
-      emergency_contact: capitalizeFirstLetter(formData.emergencyContactName),
-      emergency_relationship: formData.emergencyContactRelationship,
-      emergency_phone: formData.emergencyContactPhone,
-      emergency_email: formData.emergencyContactEmail,
+      emergency_contact: capitalizeFirstLetter(formData.emergencyContactName) || undefined,
+      emergency_relationship: formData.emergencyContactRelationship || undefined,
+      emergency_phone: formData.emergencyContactPhone || undefined,
+      emergency_email: (formData.emergencyContactEmail && formData.emergencyContactEmail.includes('@')) ? formData.emergencyContactEmail : null,
       
-      employee_id: formData.employeeId,
-      department_id: formData.department ? parseInt(formData.department, 10) : undefined,
-      job_role: capitalizeFirstLetter(rolesList.find(r => r.id.toString() === formData.role)?.role_name || formData.role),
-      role_id: formData.role ? parseInt(formData.role, 10) : undefined,
-      employment_type: formData.employeeType,
-      start_date: formData.startDate,
-      work_location: capitalizeFirstLetter(formData.location),
-      branch_id: formData.branchId && formData.branchId !== "remote" ? parseInt(formData.branchId, 10) : undefined,
-      work_schedule: formData.workSchedule,
-      reporting_manager_id: formData.manager ? parseInt(formData.manager, 10) : undefined,
-      probation_period: formData.probationPeriod ? parseInt(formData.probationPeriod, 10) : undefined,
+      employee_id: formData.employeeId || undefined,
+      department_id: formData.department ? Number(formData.department) : undefined,
+      job_role: capitalizeFirstLetter(rolesList.find(r => r.id.toString() === formData.role)?.role_name || formData.role) || undefined,
+      role_id: formData.role ? Number(formData.role) : undefined,
+      employment_type: formData.employeeType || undefined,
+      start_date: formData.startDate || undefined,
+      work_location: capitalizeFirstLetter(formData.location) || undefined,
+      branch_id: formData.branchId && formData.branchId !== "remote" ? Number(formData.branchId) : undefined,
+      work_schedule: formData.workSchedule || undefined,
+      reporting_manager_id: formData.manager ? Number(formData.manager) : undefined,
+      probation_period: formData.probationPeriod ? Number(formData.probationPeriod) : undefined,
       
-      base_salary: formData.baseSalary ? parseFloat(formData.baseSalary) : undefined,
-      currency: formData.currency,
-      salary_frequency: formData.payFrequency,
-      compensation_breakdown: JSON.stringify(compensationSplits),
+      base_salary: formData.baseSalary ? Number(formData.baseSalary) : undefined,
+      currency: formData.currency || "USD",
+      salary_frequency: formData.payFrequency || "Monthly",
+      compensation_breakdown: compensationSplits, // Array
       
-      passport_number: formData.passportNumber,
-      passport_expiry_date: formData.passportExpiry,
-      driving_license_number: formData.drivingLicense,
-      license_expiry_date: formData.licenseExpiry,
-      social_security_number: formData.socialSecurityNumber,
-      tax_id_number: formData.taxId,
+      passport_number: formData.passportNumber || undefined,
+      passport_expiry_date: formData.passportExpiry || undefined,
+      driving_license_number: formData.drivingLicense || undefined,
+      license_expiry_date: formData.licenseExpiry || undefined,
+      social_security_number: formData.socialSecurityNumber || undefined,
+      tax_id_number: formData.taxId || undefined,
       
-      bank_name: capitalizeFirstLetter(formData.bankName),
-      account_holder_name: capitalizeFirstLetter(formData.accountHolderName),
-      account_number: formData.accountNumber,
-      routing_number: formData.routingNumber,
+      bank_name: capitalizeFirstLetter(formData.bankName) || undefined,
+      account_holder_name: capitalizeFirstLetter(formData.accountHolderName) || undefined,
+      account_number: formData.accountNumber || undefined,
+      routing_number: formData.routingNumber || undefined,
       
-      skills: formData.skills,
-      certificates: formData.certifications,
-      languages: formData.languages,
+      // Skills, Languages, Certifications as arrays
+      skills: formData.skills ? formData.skills.split(',').map(s => s.trim()).filter(Boolean) : [],
+      languages: formData.languages ? formData.languages.split(',').map(l => l.trim()).filter(Boolean) : [],
+      certificates: formData.certifications ? formData.certifications.split(',').map(c => c.trim()).filter(Boolean) : [],
       
-      family_members: JSON.stringify(familyMembers),
-      education_history: JSON.stringify(educationHistory),
-      employment_history: JSON.stringify(employmentHistory),
+      // Objects/Arrays
+      family_members: familyMembers,
+      education: educationHistory, // Correct field name for backend
+      employment_history: employmentHistory,
     };
+
+    // Add password only for new employees
+    if (!id) {
+      payload.password = "Socedge@123"; // Default password since it's required by backend schema
+    }
     
-    // Use FormData for multipart/form-data request
-    const payload = new FormData();
-    
-    // Append all text fields
-    Object.keys(completeData).forEach(key => {
-      if (completeData[key] !== undefined && completeData[key] !== null) {
-        payload.append(key, completeData[key]);
-      }
-    });
-    
-    // Append files
-    if (profilePhoto) payload.append("photo", profilePhoto);
-    if (cvFile) payload.append("cv", cvFile);
-    
-    certificateFiles.forEach(file => {
-      payload.append("certificate", file);
-    });
-    
-    otherDocuments.forEach(file => {
-      payload.append("documents[]", file);
-    });
+    console.log("Submitting employee payload:", payload);
     
     try {
       if (id) {
@@ -528,9 +517,10 @@ export function AddEmployee() {
         toast.success("Employee added successfully!");
       }
       navigate("/employee-management");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save employee", error);
-      toast.error("Failed to save employee");
+      const errorMessage = error.message || (error.errors && error.errors[0]?.message) || "Failed to save employee";
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

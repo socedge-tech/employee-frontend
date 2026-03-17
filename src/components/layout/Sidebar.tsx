@@ -20,7 +20,7 @@ import {
 import { useAuth } from "../../context/AuthContext.tsx";
 import { canAccessNavItem } from "../../config/permissions.ts";
 import { UserRole as UserRoleVal } from "../../types/rbac.ts";
-import logo from "../../assets/common/Lattium 1.svg";
+import logo from "../../assets/common/lattium.svg";
 
 interface SidebarProps {
   collapsed: boolean;

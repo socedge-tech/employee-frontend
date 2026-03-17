@@ -71,12 +71,12 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                 </label>
                 <input
                   type="text"
-                  value={companyData.legalEntityName}
+                  value={companyData.EntityName}
                   onChange={(e) =>
                     !isReadOnly &&
                     setCompanyData({
                       ...companyData,
-                      legalEntityName: capitalizeFirstLetter(e.target.value),
+                      EntityName: capitalizeFirstLetter(e.target.value),
                     })
                   }
                   readOnly={isReadOnly}
@@ -901,13 +901,13 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                           if (isReadOnly) return;
                           const days = e.target.checked
                             ? [
-                                ...(companyData.workingCalendar?.workingDays ||
-                                  []),
-                                day,
-                              ]
+                              ...(companyData.workingCalendar?.workingDays ||
+                                []),
+                              day,
+                            ]
                             : (
-                                companyData.workingCalendar?.workingDays || []
-                              ).filter((d: string) => d !== day);
+                              companyData.workingCalendar?.workingDays || []
+                            ).filter((d: string) => d !== day);
                           setCompanyData({
                             ...companyData,
                             workingCalendar: {

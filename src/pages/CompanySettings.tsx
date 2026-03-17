@@ -13,7 +13,7 @@ import { usePermissions } from "../hooks/usePermissions";
 
 interface CompanyData {
   // Legal Entity & Tax Data
-  legalEntityName: string;
+  EntityName: string;
   companyCode: string;
   taxRegistrationNumber: string; // New field from column: tax_registration_number
   taxRegistrationNumbers: {
@@ -73,7 +73,7 @@ interface CompanyData {
 }
 
 const initialCompanyData: CompanyData = {
-  legalEntityName: "",
+  EntityName: "",
   companyCode: "",
   taxRegistrationNumber: "",
   taxRegistrationNumbers: {
@@ -120,14 +120,14 @@ export function CompanySettings() {
   const [isLoading, setIsLoading] = useState(true);
   const [orgId, setOrgId] = useState<number | null>(null);
   const [departmentsCount, setDepartmentsCount] = useState<number>(0);
-  
+
   const { can } = usePermissions();
   const isReadOnly = !can(Permission.EDIT_COMPANY_STRUCTURE);
 
   // Calculate completion percentage dynamically based on actual field values
   const completionPercentage = useMemo(() => {
     const requiredFields = [
-      companyData.legalEntityName,
+      companyData.EntityName,
       companyData.companyCode,
       companyData.companyType,
       companyData.currency,
@@ -162,12 +162,12 @@ export function CompanySettings() {
       try {
         const orgs = await getOrganizations();
         const organization = Array.isArray(orgs) ? orgs[0] : orgs;
-        
+
         if (organization && organization.id) {
           const mainOrg = organization;
           setOrgId(mainOrg.id);
           setCompanyData({
-            legalEntityName: capitalizeFirstLetter(mainOrg.legal_entity_name || mainOrg.entity_name || ""),
+            EntityName: capitalizeFirstLetter(mainOrg.entity_name || mainOrg.entity_name || ""),
             companyCode: mainOrg.company_code || "",
             taxRegistrationNumber: mainOrg.tax_registration_number || "",
             companyType: mainOrg.company_type || "",
@@ -240,7 +240,7 @@ export function CompanySettings() {
 
   const handleSave = async () => {
     // Validate required fields
-    if (!companyData.legalEntityName || !companyData.companyCode) {
+    if (!companyData.EntityName || !companyData.companyCode) {
       toast.error("Required fields missing", {
         description: "Please fill in Legal Entity Name and Company Code.",
       });
@@ -297,16 +297,16 @@ export function CompanySettings() {
     // Also normalize (trim + uppercase) the active tax field before saving.
     const activeTaxKey =
       ctry === "India" ? "pan" :
-      ctry === "USA" ? "ein" :
-      ctry === "France" ? "siret" : "other";
+        ctry === "USA" ? "ein" :
+          ctry === "France" ? "siret" : "other";
 
     // Normalize the stored value before sending to the API
     const normalizedTaxNumbers = {
       ...companyData.taxRegistrationNumbers,
-      pan:   (companyData.taxRegistrationNumbers.pan   || "").trim().toUpperCase(),
-      ein:   (companyData.taxRegistrationNumbers.ein   || "").trim().toUpperCase(),
+      pan: (companyData.taxRegistrationNumbers.pan || "").trim().toUpperCase(),
+      ein: (companyData.taxRegistrationNumbers.ein || "").trim().toUpperCase(),
       siret: (companyData.taxRegistrationNumbers.siret || "").trim(),
-      tin:   (companyData.taxRegistrationNumbers.tin   || "").trim().toUpperCase(),
+      tin: (companyData.taxRegistrationNumbers.tin || "").trim().toUpperCase(),
     };
     const primaryTaxId = (normalizedTaxNumbers[activeTaxKey as keyof typeof normalizedTaxNumbers] || "").trim();
 
@@ -315,8 +315,8 @@ export function CompanySettings() {
     //   branch_name, branch_code, address (street), zip (not zip_code)
     //   time_zone, tax_location, city, state, country
     const apiPayload = {
-      entity_name: capitalizeFirstLetter(companyData.legalEntityName),
-      legal_entity_name: capitalizeFirstLetter(companyData.legalEntityName),
+      entity_name: capitalizeFirstLetter(companyData.EntityName),
+      entity_name: capitalizeFirstLetter(companyData.EntityName),
       company_code: companyData.companyCode,
       company_type: companyData.companyType,
       // Flat column stays in sync with the active country's tax ID
@@ -325,11 +325,11 @@ export function CompanySettings() {
       currency: companyData.currency,
       fiscal_year_end: companyData.fiscalYearEnd,
       // Individual per-country tax columns — send normalized (trimmed/uppercased) values
-      pan:          normalizedTaxNumbers.pan   || "",
-      tin:          normalizedTaxNumbers.tin   || "",
-      sin:          (companyData.taxRegistrationNumbers.sin   || "").trim(),
-      ein:          normalizedTaxNumbers.ein   || "",
-      siret:        normalizedTaxNumbers.siret || "",
+      pan: normalizedTaxNumbers.pan || "",
+      tin: normalizedTaxNumbers.tin || "",
+      sin: (companyData.taxRegistrationNumbers.sin || "").trim(),
+      ein: normalizedTaxNumbers.ein || "",
+      siret: normalizedTaxNumbers.siret || "",
       other_tax_id: (companyData.taxRegistrationNumbers.other || "").trim(),
       address: capitalizeFirstLetter(companyData.legalAddress.street),
       legal_address: capitalizeFirstLetter(companyData.legalAddress.street),
@@ -353,7 +353,7 @@ export function CompanySettings() {
         const numId = parseInt(loc.id, 10);
         // Date.now() is 13 digits. Real DB IDs are much smaller.
         const isDbId = !isNaN(numId) && numId < 1000000000;
-        
+
         return {
           ...(isDbId ? { id: numId } : {}),
           branch_name: capitalizeFirstLetter(loc.locationName),
@@ -377,7 +377,7 @@ export function CompanySettings() {
         const newOrg = await createOrganization(apiPayload);
         setOrgId(newOrg.id);
       }
-      
+
       toast.success("Company settings saved successfully!", {
         description: "Your company structure configuration has been updated.",
       });
@@ -472,8 +472,8 @@ export function CompanySettings() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <button 
-            onClick={() => navigate("/company-structure")} 
+          <button
+            onClick={() => navigate("/company-structure")}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <ArrowLeft className="w-5 h-5 text-gray-600" />
@@ -512,11 +512,10 @@ export function CompanySettings() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === tab.id
-                    ? "border-indigo-600 text-indigo-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
+                className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === tab.id
+                  ? "border-indigo-600 text-indigo-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
               >
                 <Icon className="w-4 h-4" />
                 {tab.label}
@@ -528,7 +527,7 @@ export function CompanySettings() {
 
       {/* Tab Content */}
       <div className="min-h-[500px]">
-        <CompanyStructureForm 
+        <CompanyStructureForm
           companyData={companyData}
           setCompanyData={setCompanyData}
           updateField={updateField}

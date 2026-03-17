@@ -84,13 +84,13 @@ function TeamRow({ team, isHovered, canEdit, onMouseEnter, onMouseLeave }: TeamR
       <div className="flex -space-x-2">
         {team.avatars.length > 0
           ? team.avatars.map((avatar, idx) => (
-              <div
-                key={idx}
-                className="w-8 h-8 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center text-xs text-white font-medium border-2 border-white"
-              >
-                {avatar}
-              </div>
-            ))
+            <div
+              key={idx}
+              className="w-8 h-8 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center text-xs text-white font-medium border-2 border-white"
+            >
+              {avatar}
+            </div>
+          ))
           : (
             <div className="w-8 h-8 bg-gray-100 rounded-full border-2 border-white flex items-center justify-center">
               <Users className="w-3 h-3 text-gray-400" />
@@ -223,17 +223,16 @@ export function CompanyStructure() {
           {/* View toggle */}
           <div className="flex items-center p-1 bg-gray-100 rounded-lg border border-gray-200 shadow-sm">
             {[
-              { label: "Setup View",   active: isSetupView,  onClick: () => setIsSetupView(true) },
+              { label: "Setup View", active: isSetupView, onClick: () => setIsSetupView(true) },
               { label: "Details View", active: !isSetupView, onClick: () => setIsSetupView(false) },
             ].map(btn => (
               <button
                 key={btn.label}
                 onClick={btn.onClick}
-                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all duration-200 ${
-                  btn.active
+                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all duration-200 ${btn.active
                     ? "bg-white text-indigo-600 shadow-sm ring-1 ring-gray-200"
                     : "text-gray-500 hover:text-gray-700 hover:bg-gray-200/50"
-                }`}
+                  }`}
               >
                 {btn.label}
               </button>
@@ -309,7 +308,7 @@ export function CompanyStructure() {
                       </div>
                       <div className="flex-1">
                         <span className="font-bold text-[#1E1B4B] text-lg">
-                          {companyName || companyDetails?.legalEntityName}
+                          {companyName || companyDetails?.EntityName}
                         </span>
                         <div className="flex items-center gap-3 mt-0.5 text-xs font-medium text-[#4F46E5]">
                           <span>Code: {companyDetails?.companyCode}</span>
@@ -356,7 +355,7 @@ export function CompanyStructure() {
                               </span>
                               {isBranchHovered && (
                                 <NodeActions
-                                  onView={() => {}}
+                                  onView={() => { }}
                                   canEdit={canEditStructure}
                                   onEdit={() => navigate("/company-structure/settings")}
                                 />
@@ -460,13 +459,13 @@ export function CompanyStructure() {
                 <CardContent className="px-6 pb-6">
                   <div className="space-y-5">
                     {[
-                      { label: "Legal Entity",   value: companyDetails?.legalEntityName },
-                      { label: "Company Code",   value: companyDetails?.companyCode },
-                      { label: "Company Type",   value: companyDetails?.companyType },
-                      { label: "Currency",       value: companyDetails?.currency },
-                      { label: "Pay Frequency",  value: companyDetails?.payFrequency },
+                      { label: "Legal Entity", value: companyDetails?.EntityName },
+                      { label: "Company Code", value: companyDetails?.companyCode },
+                      { label: "Company Type", value: companyDetails?.companyType },
+                      { label: "Currency", value: companyDetails?.currency },
+                      { label: "Pay Frequency", value: companyDetails?.payFrequency },
                       { label: "Business Units", value: companyDetails?.businessUnit },
-                      { label: "Cost Centers",   value: companyDetails?.costCenter },
+                      { label: "Cost Centers", value: companyDetails?.costCenter },
                       { label: "Payroll Statutory Unit", value: companyDetails?.payrollStatutoryUnit },
                       { label: "Legal Employer", value: companyDetails?.legalEmployer },
                       { label: "Legislative Data Group", value: companyDetails?.legislativeDataGroup },
