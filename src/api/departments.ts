@@ -10,8 +10,10 @@ export interface Team {
   team_name: string;
   description?: string;
   team_lead_id?: number | null;
-  team_lead?: { username: string } | null;
+  team_lead?: { username: string; full_name?: string } | null;
   members: TeamMember[];
+  member_count?: number;
+  avatars?: string[];
 }
 
 export interface Department {
@@ -23,6 +25,8 @@ export interface Department {
   parent_department_id?: number | null;
   annual_budget?: string | number;
   manager_id?: number;
+  manager?: { username: string; full_name?: string } | null;
+  headcount?: number;
   teams?: Team[];
   permissions?: any;
   created_at?: string;

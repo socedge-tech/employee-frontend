@@ -292,14 +292,6 @@ export function CompanySettings() {
 
     setIsSaving(true);
 
-    // Reuse `ctry` from validation above to derive the active tax key and
-    // keep the flat tax_registration_number column in sync.
-    // Also normalize (trim + uppercase) the active tax field before saving.
-    const activeTaxKey =
-      ctry === "India" ? "pan" :
-        ctry === "USA" ? "ein" :
-          ctry === "France" ? "siret" : "other";
-
     // Normalize the stored value before sending to the API
     const normalizedTaxNumbers = {
       ...companyData.taxRegistrationNumbers,
@@ -308,7 +300,6 @@ export function CompanySettings() {
       siret: (companyData.taxRegistrationNumbers.siret || "").trim(),
       tin: (companyData.taxRegistrationNumbers.tin || "").trim().toUpperCase(),
     };
-    const primaryTaxId = (normalizedTaxNumbers[activeTaxKey as keyof typeof normalizedTaxNumbers] || "").trim();
 
     // Build the API payload.
     // IMPORTANT: The backend Zod validator for `branch` expects:
@@ -316,11 +307,8 @@ export function CompanySettings() {
     //   time_zone, tax_location, city, state, country
     const apiPayload = {
       entity_name: capitalizeFirstLetter(companyData.EntityName),
-      entity_name: capitalizeFirstLetter(companyData.EntityName),
       company_code: companyData.companyCode,
       company_type: companyData.companyType,
-      // Flat column stays in sync with the active country's tax ID
-      tax_registration_number: primaryTaxId,
       jurisdiction: companyData.jurisdiction,
       currency: companyData.currency,
       fiscal_year_end: companyData.fiscalYearEnd,
@@ -332,13 +320,11 @@ export function CompanySettings() {
       siret: normalizedTaxNumbers.siret || "",
       other_tax_id: (companyData.taxRegistrationNumbers.other || "").trim(),
       address: capitalizeFirstLetter(companyData.legalAddress.street),
-      legal_address: capitalizeFirstLetter(companyData.legalAddress.street),
       city: capitalizeFirstLetter(companyData.legalAddress.city),
       state: capitalizeFirstLetter(companyData.legalAddress.state),
       country: capitalizeFirstLetter(companyData.legalAddress.country),
       zip: companyData.legalAddress.zipCode,
       business_unit: (companyData.businessUnits || []).filter(v => v && v.trim()).map(v => capitalizeFirstLetter(v.trim())).join(", "),
-      division: (companyData.divisions || []).filter(v => v && v.trim()).map(v => capitalizeFirstLetter(v.trim())).join(", "),
       cost_center: (companyData.costCenters || []).filter(v => v && v.trim()).map(v => capitalizeFirstLetter(v.trim())).join(", "),
 
       payroll_statutory_unit: capitalizeFirstLetter(companyData.payrollStatutoryUnit),
