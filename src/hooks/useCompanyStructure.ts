@@ -7,8 +7,9 @@ import { toast } from "sonner";
 export interface TeamNode {
   id: string | number;
   name: string;
+  description?: string;
   lead: string;
-  members: number;
+  members: any; // Allow count or array for detailed view mapping
   avatars: string[];
 }
 
@@ -95,7 +96,9 @@ function mapDepartments(deptData: any[]): DepartmentNode[] {
       name: t.team_name ?? t.name,
       lead: t.team_lead?.username ?? t.team_lead ?? t.lead ?? "Unassigned",
       members: Array.isArray(t.members) ? t.members.length : (t.member_count ?? t.members ?? 0),
-      avatars: t.avatars ?? [],
+      avatars: t.members && Array.isArray(t.members) 
+        ? t.members.map((m: any) => m.username?.[0]?.toUpperCase()).filter(Boolean).slice(0, 3)
+        : (t.avatars ?? []),
     })),
     branch_id: d.branch_id,
     expanded: false,
