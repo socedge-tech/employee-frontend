@@ -19,6 +19,15 @@ export const getTeams = async (): Promise<Team[]> => {
   }
 };
 
+export const getTeam = async (id: number): Promise<Team> => {
+  try {
+    const response = await axiosInstance.get(`/teams/${id}`);
+    return response.data.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to fetch team details" };
+  }
+};
+
 export const createTeam = async (data: any): Promise<Team> => {
   try {
     const response = await axiosInstance.post("/teams", data);

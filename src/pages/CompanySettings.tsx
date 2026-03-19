@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router";
 import { capitalizeFirstLetter } from "../utils/stringUtils";
 import { ArrowLeft, Building2, Save, MapPin, Briefcase, Calendar, ChevronRight, Loader2 } from "lucide-react";
@@ -120,6 +120,65 @@ export function CompanySettings() {
   const [isLoading, setIsLoading] = useState(true);
   const [orgId, setOrgId] = useState<number | null>(null);
   const [departmentsCount, setDepartmentsCount] = useState<number>(0);
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const mapBranchesToLocations = (branches: any[]) =>
+    (branches || []).map((branch: any) => ({
+      id: (branch.id || Date.now()).toString(),
+      locationCode: branch.location_code || branch.branch_code || "",
+      locationName: capitalizeFirstLetter(branch.location_name || branch.branch_name || ""),
+      address: {
+        street: capitalizeFirstLetter(branch.street_address || branch.address || ""),
+        city: capitalizeFirstLetter(branch.city || ""),
+        state: capitalizeFirstLetter(branch.state || ""),
+        zipCode: branch.zip_code || branch.zip || "",
+        country: capitalizeFirstLetter(branch.country || ""),
+      },
+      timeZone: branch.time_zone || "",
+      taxLocation: capitalizeFirstLetter(branch.tax_location || ""),
+      gst: branch.gst || "",
+    }));
+
+  const buildBranchPayload = (locations: any[]) => locations.map(loc => {
+    const numId = parseInt(loc.id, 10);
+    const hasValidId = !isNaN(numId) && numId > 0;
+
+    return {
+      ...(hasValidId ? { id: numId } : {}),
+      branch_name: capitalizeFirstLetter(loc.locationName),
+      branch_code: loc.locationCode,
+      address: capitalizeFirstLetter(loc.address.street),
+      city: capitalizeFirstLetter(loc.address.city),
+      state: capitalizeFirstLetter(loc.address.state),
+      zip: loc.address.zipCode,
+      country: capitalizeFirstLetter(loc.address.country),
+      time_zone: loc.timeZone,
+      tax_location: capitalizeFirstLetter(loc.taxLocation),
+      gst: loc.gst || "",
+    };
+  });
+
+  const saveLocationsToAPI = async (locations: any[]) => {
+    if (!orgId) return;
+    const apiPayload = {
+      branch: buildBranchPayload(locations),
+    };
+    try {
+      const response = await updateOrganization(orgId, apiPayload);
+      // Sync IDs after save
+      if (response?.branches) {
+        setCompanyData((prev) => ({
+          ...prev,
+          locations: mapBranchesToLocations(response.branches),
+        }));
+      }
+      toast.success("Locations updated successfully");
+    } catch (error: any) {
+      toast.error("Failed to save location changes", {
+        description: error.message || "Please try again",
+      });
+    }
+  };
 
   const { can } = usePermissions();
   const isReadOnly = !can(Permission.EDIT_COMPANY_STRUCTURE);
@@ -194,21 +253,7 @@ export function CompanySettings() {
             divisions: mainOrg.division ? mainOrg.division.split(",").map((i: string) => capitalizeFirstLetter(i.trim())) : [],
             costCenters: mainOrg.cost_center ? mainOrg.cost_center.split(",").map((i: string) => capitalizeFirstLetter(i.trim())) : [],
 
-            locations: (mainOrg.branches || mainOrg.branch || []).map((branch: any) => ({
-              id: (branch.id || Date.now()).toString(),
-              locationCode: branch.location_code || branch.branch_code || "",
-              locationName: capitalizeFirstLetter(branch.location_name || branch.branch_name || ""),
-              address: {
-                street: capitalizeFirstLetter(branch.street_address || branch.address || ""),
-                city: capitalizeFirstLetter(branch.city || ""),
-                state: capitalizeFirstLetter(branch.state || ""),
-                zipCode: branch.zip_code || branch.zip || "",
-                country: capitalizeFirstLetter(branch.country || ""),
-              },
-              timeZone: branch.time_zone || "",
-              taxLocation: capitalizeFirstLetter(branch.tax_location || ""),
-              gst: branch.gst || "",
-            })),
+            locations: mapBranchesToLocations(mainOrg.branches || mainOrg.branch || []),
             payrollStatutoryUnit: capitalizeFirstLetter(mainOrg.payroll_statutory_unit || ""),
             legalEmployer: capitalizeFirstLetter(mainOrg.legal_employer || ""),
             legislativeDataGroup: capitalizeFirstLetter(mainOrg.legislative_data_group || ""),
@@ -335,33 +380,24 @@ export function CompanySettings() {
       working_days: companyData.workingCalendar.workingDays,
       public_holidays: companyData.workingCalendar.publicHolidays.filter(v => v.trim()),
       // `branch` key with field names that match the backend Zod validator
-      branch: companyData.locations.map(loc => {
-        const numId = parseInt(loc.id, 10);
-        // Date.now() is 13 digits. Real DB IDs are much smaller.
-        const isDbId = !isNaN(numId) && numId < 1000000000;
-
-        return {
-          ...(isDbId ? { id: numId } : {}),
-          branch_name: capitalizeFirstLetter(loc.locationName),
-          branch_code: loc.locationCode,
-          address: capitalizeFirstLetter(loc.address.street),
-          city: capitalizeFirstLetter(loc.address.city),
-          state: capitalizeFirstLetter(loc.address.state),
-          zip: loc.address.zipCode,
-          country: capitalizeFirstLetter(loc.address.country),
-          time_zone: loc.timeZone,
-          tax_location: capitalizeFirstLetter(loc.taxLocation),
-          gst: loc.gst || "",
-        };
-      }),
+      branch: buildBranchPayload(companyData.locations),
     };
 
     try {
-      if (orgId) {
-        await updateOrganization(orgId, apiPayload);
-      } else {
-        const newOrg = await createOrganization(apiPayload);
-        setOrgId(newOrg.id);
+      const savedOrg = orgId
+        ? await updateOrganization(orgId, apiPayload)
+        : await createOrganization(apiPayload);
+
+      if (!orgId) {
+        setOrgId(savedOrg.id);
+      }
+
+      // Ensure we keep branch IDs in sync after save to avoid duplicate branches on subsequent saves.
+      if (savedOrg?.branches) {
+        setCompanyData((prev) => ({
+          ...prev,
+          locations: mapBranchesToLocations(savedOrg.branches),
+        }));
       }
 
       toast.success("Company settings saved successfully!", {
@@ -404,26 +440,44 @@ export function CompanySettings() {
       taxLocation: "",
       gst: "",
     };
+    const updatedLocations = [...companyData.locations, newLocation];
     setCompanyData((prev) => ({
       ...prev,
-      locations: [...prev.locations, newLocation],
+      locations: updatedLocations,
     }));
+    saveLocationsToAPI(updatedLocations);
   };
 
   const updateLocation = (id: string, field: string, value: any) => {
+    const targetId = String(id);
     setCompanyData((prev) => ({
       ...prev,
       locations: prev.locations.map((loc) =>
-        loc.id === id ? { ...loc, [field]: value } : loc
+        String(loc.id) === targetId ? { ...loc, [field]: value } : loc
       ),
     }));
+
+    // Debounce API call to avoid too many requests while typing
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+    }
+
+    updateTimeoutRef.current = setTimeout(() => {
+      setCompanyData((prev) => {
+        saveLocationsToAPI(prev.locations);
+        return prev;
+      });
+    }, 1500); // Wait 1.5 seconds after the last change
   };
 
   const removeLocation = (id: string) => {
+    const targetId = String(id);
+    const updatedLocations = companyData.locations.filter((loc) => String(loc.id) !== targetId);
     setCompanyData((prev) => ({
       ...prev,
-      locations: prev.locations.filter((loc) => loc.id !== id),
+      locations: updatedLocations,
     }));
+    saveLocationsToAPI(updatedLocations);
   };
 
   const tabs = [

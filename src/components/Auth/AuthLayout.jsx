@@ -42,6 +42,13 @@ const AuthLayout = ({ children }) => {
 
         {/* DESKTOP COLOR BACKGROUND - Visible on desktop only */}
         <div className="hidden lg:relative lg:flex lg:flex-1 min-h-[260px] bg-gradient-to-r from-blue-600 to-purple-600 overflow-hidden items-center justify-center p-12">
+          {/* Background image (same as login mobile background) */}
+          <img
+            src={mobbg}
+            alt="Auth background"
+            className="absolute inset-0 h-full w-full object-cover opacity-70"
+          />
+
           {/* Decorative shapes and overlay */}
           <div className="absolute inset-0 bg-black/10 backdrop-blur-[2px]"></div>
 

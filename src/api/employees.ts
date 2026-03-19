@@ -78,7 +78,6 @@ export const createEmployee = async (data: FormData | Record<string, any>): Prom
 
     const response = await axiosInstance.post("/employees", data, {
       headers: isFormData ? {
-        // Don't set Content-Type for FormData - let axios set it with boundary
         'Content-Type': 'multipart/form-data',
       } : {
         'Content-Type': 'application/json',
@@ -97,7 +96,6 @@ export const updateEmployee = async (id: number, data: FormData | Record<string,
 
     const response = await axiosInstance.put(`/employees/${id}`, data, {
       headers: isFormData ? {
-        // Don't set Content-Type for FormData - let axios set it with boundary
         'Content-Type': 'multipart/form-data',
       } : {
         'Content-Type': 'application/json',

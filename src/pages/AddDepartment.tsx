@@ -81,6 +81,7 @@ export function AddDepartment() {
   const [departmentsList, setDepartmentsList] = useState<Array<{id: number, department_name: string}>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeptView, setIsDeptView] = useState(false);
 
   const fetchById = async () => {
     try {
@@ -164,6 +165,11 @@ export function AddDepartment() {
   );
 
   const handleDeptUpdate = async () => {
+    if (isDeptView) {
+      toast.error("Cannot save while in view mode.");
+      return;
+    }
+
     if (!departmentName || !departmentCode) {
       toast.error("Missing required fields");
       return;
@@ -354,6 +360,9 @@ export function AddDepartment() {
     if (!isEditMode || isLoading) return;
     const params = new URLSearchParams(location.search);
     const teamId = params.get("teamId");
+    const isViewMode = params.get("view") === "true";
+
+    setIsDeptView(isViewMode);
 
     if (!teamId || teams.length === 0) return;
 
@@ -373,7 +382,8 @@ export function AddDepartment() {
     setTeamLead(lead || null);
     setTeamMembers(employees.filter(e => existingTeam.members.includes(e.id)));
     setSelectedTeam(existingTeam);
-    setIsTeamEdit(true);
+    setIsTeamEdit(!isViewMode);
+    setIsTeamView(isViewMode);
     setShowTeamModal(true);
   }, [location.search, teams, employees, isEditMode, isLoading]);
 
@@ -405,25 +415,32 @@ export function AddDepartment() {
                 </button>
                 <div>
                   <h1 className="text-2xl font-semibold text-gray-900">
-                    {isEditMode ? "Edit Department" : "Add New Department"}
+                    {isDeptView ? "View Department" : isEditMode ? "Edit Department" : "Add New Department"}
                   </h1>
                   <p className="text-sm text-gray-500 mt-1">
-                    {isEditMode ? "Update department information" : "Create a new department in your organization"}
+                    {isDeptView
+                      ? "Review department information"
+                      : isEditMode
+                        ? "Update department information"
+                        : "Create a new department in your organization"
+                    }
                   </p>
                 </div>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => navigate("/company-structure")} disabled={isSaving}>
-                  Cancel
+                  {isDeptView ? "Close" : "Cancel"}
                 </Button>
-                <Button className="gap-2" onClick={handleDeptUpdate} disabled={isSaving}>
-                  {isSaving ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  {isSaving ? "Saving..." : "Save Department"}
-                </Button>
+                {!isDeptView && (
+                  <Button className="gap-2" onClick={handleDeptUpdate} disabled={isSaving}>
+                    {isSaving ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    {isSaving ? "Saving..." : "Save Department"}
+                  </Button>
+                )}
               </div>
             </div>
           </div>
