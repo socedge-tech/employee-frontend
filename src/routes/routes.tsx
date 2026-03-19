@@ -16,6 +16,7 @@ import { ViewEmployee } from "../pages/ViewEmployee.tsx";
 import { RolesPermissions } from "../pages/RolesPermissions.tsx";
 import { UserProfile } from "../pages/UserProfile.tsx";
 import { LeaveManagement } from "../pages/LeaveManagement.tsx";
+import { Dashboard } from "../pages/Dashboard.tsx";
 
 export default function AppRoutes() {
   return (
@@ -28,7 +29,7 @@ export default function AppRoutes() {
 
       {/* Protected Routes (with EMPLOYEE layout) */}
       <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-        <Route index element={<CompanyStructure />} />
+        <Route index element={<Dashboard />} />
         <Route path="/company-structure" element={<CompanyStructure />} />
         <Route path="/company-structure/settings" element={<CompanySettings />} />
         <Route path="/company-structure/add-department" element={<AddDepartment />} />
