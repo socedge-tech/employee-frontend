@@ -115,7 +115,9 @@ export function AddEmployee() {
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
   const [profilePhotoPreview, setProfilePhotoPreview] = useState<string | null>(null);
   const [cvFile, setCvFile] = useState<File | null>(null);
+  const [existingResumeUrl, setExistingResumeUrl] = useState<string | null>(null);
   const [certificateFiles, setCertificateFiles] = useState<File[]>([]);
+  const [existingCertificateUrls, setExistingCertificateUrls] = useState<string[]>([]);
   const [otherDocuments, setOtherDocuments] = useState<File[]>([]);
 
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
@@ -240,6 +242,9 @@ export function AddEmployee() {
           const emp = await getEmployee(parseInt(id, 10));
           const details: any = emp.details || {};
 
+          const matchedRole = rolesList.find((r: any) => r.role_name === details.job_role);
+          const matchedLoc = locationsList.find((l: any) => l.name === details.work_location);
+
           setFormData({
             firstName: details.first_name || "",
             lastName: details.last_name || "",
@@ -272,7 +277,7 @@ export function AddEmployee() {
             emergencyContactEmail: details.emergency_email || "",
 
             department: details.department_id?.toString() || "",
-            role: emp.roles?.[0]?.role_id?.toString() || "",
+            role: emp.roles?.[0]?.role_id?.toString() || matchedRole?.id?.toString() || details.job_role?.toString() || "",
             location: details.work_location || "",
             startDate: details.start_date ? details.start_date.split('T')[0] : "",
             employeeType: details.employment_type || "Full-time",
@@ -285,7 +290,7 @@ export function AddEmployee() {
             currency: details.currency || "USD",
             payFrequency: details.salary_frequency || "Monthly",
 
-            branchId: details.branch_id?.toString() || (details.work_location === "Remote" ? "remote" : ""),
+            branchId: matchedLoc?.id?.toString() || (details.work_location === "Remote" ? "remote" : ""),
 
             passportNumber: details.passport_number || "",
             passportExpiry: details.passport_expiry_date ? details.passport_expiry_date.split('T')[0] : "",
@@ -299,15 +304,28 @@ export function AddEmployee() {
             routingNumber: details.routing_number || "",
             accountHolderName: details.account_holder_name || "",
 
-            skills: details.skills || "",
-            certifications: details.certificates || "",
-            languages: details.languages || ""
+            skills: Array.isArray(details.skills) ? details.skills.join(', ') : (details.skills || ""),
+            certifications: Array.isArray(details.certificates) ? details.certificates.join(', ') : (details.certificates || ""),
+            languages: Array.isArray(details.languages) ? details.languages.join(', ') : (details.languages || "")
           });
 
-          if (details.family_members) setFamilyMembers(details.family_members);
-          if (details.education) setEducationHistory(details.education);
-          if (details.employment_history) setEmploymentHistory(details.employment_history);
-          if (details.compensation_breakdown) setCompensationSplits(details.compensation_breakdown);
+          const safeParse = (data: any, fallback: any = []) => {
+            if (!data) return fallback;
+            if (typeof data === 'string') {
+              try { return JSON.parse(data); } catch (e) { return fallback; }
+            }
+            return Array.isArray(data) ? data : fallback;
+          };
+
+          if (details.family_members) setFamilyMembers(safeParse(details.family_members));
+          if (details.education) setEducationHistory(safeParse(details.education));
+          if (details.employment_history) setEmploymentHistory(safeParse(details.employment_history));
+          if (details.compensation_breakdown) setCompensationSplits(safeParse(details.compensation_breakdown, [{ componentType: "Base Salary", amount: "", frequency: "Monthly" }]));
+
+          if (details.profile_picture) setProfilePhotoPreview(details.profile_picture);
+          if (details.resume) setExistingResumeUrl(details.resume);
+          if (details.certificate_files) setExistingCertificateUrls(safeParse(details.certificate_files));
+
           setErrorStates(prev => ({ ...prev, employee: "" }));
         } catch (error: any) {
           console.error("Failed to load employee details", error);
@@ -473,9 +491,9 @@ export function AddEmployee() {
       routing_number: formData.routingNumber || undefined,
 
       // Skills, Languages, Certifications as arrays
-      skills: formData.skills ? formData.skills.split(',').map(s => s.trim()).filter(Boolean) : [],
-      languages: formData.languages ? formData.languages.split(',').map(l => l.trim()).filter(Boolean) : [],
-      certificates: formData.certifications ? formData.certifications.split(',').map(c => c.trim()).filter(Boolean) : [],
+      skills: typeof formData.skills === 'string' && formData.skills ? formData.skills.split(',').map(s => s.trim()).filter(Boolean) : (Array.isArray(formData.skills) ? formData.skills : []),
+      languages: typeof formData.languages === 'string' && formData.languages ? formData.languages.split(',').map(l => l.trim()).filter(Boolean) : (Array.isArray(formData.languages) ? formData.languages : []),
+      certificates: typeof formData.certifications === 'string' && formData.certifications ? formData.certifications.split(',').map(c => c.trim()).filter(Boolean) : (Array.isArray(formData.certifications) ? formData.certifications : []),
 
       // Objects/Arrays
       family_members: familyMembers,
@@ -1794,9 +1812,16 @@ export function AddEmployee() {
                                 className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-indigo-500 transition-colors cursor-pointer group"
                               >
                                 <Upload className="w-6 h-6 text-gray-400 mx-auto mb-2 group-hover:text-indigo-500" />
-                                <p className="text-sm text-gray-600">{cvFile ? cvFile.name : "Upload Resume/CV"}</p>
+                                <p className="text-sm text-gray-600">{cvFile ? cvFile.name : (existingResumeUrl ? "Change Resume/CV" : "Upload Resume/CV")}</p>
                                 <p className="text-xs text-gray-400 mt-1">PDF, DOC up to 10MB</p>
                               </div>
+                              {existingResumeUrl && !cvFile && (
+                                <div className="mt-2 text-xs flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-200">
+                                  <a href={existingResumeUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800 font-medium truncate flex-1">
+                                    Current Resume: {existingResumeUrl.split('/').pop() || "View Document"}
+                                  </a>
+                                </div>
+                              )}
                             </div>
 
                             {/* Certificates Upload */}
@@ -1833,6 +1858,17 @@ export function AddEmployee() {
                                       >
                                         <Trash2 className="w-3 h-3" />
                                       </button>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                              {existingCertificateUrls.length > 0 && certificateFiles.length === 0 && (
+                                <ul className="mt-2 space-y-1">
+                                  {existingCertificateUrls.map((url, i) => (
+                                    <li key={`existing-${i}`} className="text-xs text-gray-600 flex items-center justify-between bg-gray-50 p-2 rounded">
+                                      <a href={url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline truncate max-w-[200px]">
+                                        Current: {url.split('/').pop()}
+                                      </a>
                                     </li>
                                   ))}
                                 </ul>

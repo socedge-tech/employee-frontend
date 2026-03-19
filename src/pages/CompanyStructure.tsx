@@ -480,13 +480,13 @@ export function CompanyStructure() {
                                       canEdit={canManageDepts}
                                       onToggle={() => toggleDepartment(dept.id)}
                                       onSelect={() => handleViewDepartment(dept)}
-                                      onView={undefined} // Department: Only Edit (no View)
+                                      onView={() => navigate(`/company-structure/edit-department/${dept.id}?view=true`)}
                                       onMouseEnter={() => setHoveredNode({ type: "department", id: String(dept.id) })}
                                       onMouseLeave={() => setHoveredNode(null)}
                                       onEdit={() => handleDeptEdit(dept)}
                                       teamHoveredId={teamHoveredId}
                                       onTeamHover={id => setHoveredNode(id ? { type: "team", id: String(id) } : null)}
-                                      onTeamView={team => handleTeamView(dept, team)}
+                                      onTeamView={team => navigate(`/company-structure/edit-department/${dept.id}?teamId=${team.id}&view=true`)}
                                       onTeamEdit={team => handleTeamEdit(dept, team)}
                                     />
                                 )) : (
@@ -534,13 +534,13 @@ export function CompanyStructure() {
                                   canEdit={canManageDepts}
                                   onToggle={() => toggleDepartment(dept.id)}
                                   onSelect={() => handleViewDepartment(dept)}
-                                  onView={undefined} // Department: Only Edit (no View)
+                                  onView={() => navigate(`/company-structure/edit-department/${dept.id}?view=true`)}
                                   onMouseEnter={() => setHoveredNode({ type: "department", id: String(dept.id) })}
                                   onMouseLeave={() => setHoveredNode(null)}
                                   onEdit={() => handleDeptEdit(dept)}
                                   teamHoveredId={teamHoveredId}
                                   onTeamHover={id => setHoveredNode(id ? { type: "team", id: String(id) } : null)}
-                                  onTeamView={team => handleTeamView(dept, team)}
+                                  onTeamView={team => navigate(`/company-structure/edit-department/${dept.id}?teamId=${team.id}&view=true`)}
                                   onTeamEdit={team => handleTeamEdit(dept, team)}
                                 />
                               ))}
