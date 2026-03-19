@@ -15,6 +15,7 @@ import { AddEmployee } from "../pages/AddEmployee.tsx";
 import { ViewEmployee } from "../pages/ViewEmployee.tsx";
 import { RolesPermissions } from "../pages/RolesPermissions.tsx";
 import { UserProfile } from "../pages/UserProfile.tsx";
+import { LeaveManagement } from "../pages/LeaveManagement.tsx";
 
 export default function AppRoutes() {
   return (
@@ -36,6 +37,7 @@ export default function AppRoutes() {
         <Route path="/employee-management/view-employee/:id" element={<ViewEmployee />} />
         <Route path="/employee-management/add-employee" element={<AddEmployee />} />
         <Route path="/employee-management/edit-employee/:id" element={<AddEmployee />} />
+        <Route path="/leave-management" element={<LeaveManagement />} />
         <Route path="/roles-permissions" element={<RolesPermissions />} />
         <Route path="/profile" element={<UserProfile />} />
       </Route>
