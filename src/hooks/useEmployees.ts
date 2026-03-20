@@ -135,7 +135,7 @@ export function useEmployees() {
 
       setDynOptions({
         departments: Array.isArray(deps) ? deps.map(d => d.department_name) : [],
-        roles: Array.isArray(roles) ? roles.map(r => r.role_name) : [],
+        roles: Array.isArray(roles) ? roles.map(r => r.name) : [],
         locations: Array.from(locations).filter(Boolean) as string[]
       });
     } catch (error) {

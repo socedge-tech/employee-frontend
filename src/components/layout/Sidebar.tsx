@@ -41,7 +41,7 @@ const navItems = [
   { path: "/email-management", label: "Email Management", icon: Mail },
   { path: "/notify-management", label: "Notify Management", icon: Bell },
   { path: "/roles-permissions", label: "Roles & Permissions", icon: Shield },
-  { path: "/settings", label: "System Settings", icon: Settings },
+  { path: "/system-settings", label: "System Settings", icon: Settings },
 ];
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
@@ -67,18 +67,17 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <div className={`h-16 flex items-center border-b border-gray-200 relative overflow-hidden ${collapsed ? 'justify-center' : 'px-6'}`}>
         {!collapsed && (
           <div className="flex items-center justify-start animate-in fade-in zoom-in duration-500">
-            <img 
-              src={logo} 
-              alt="Lattium" 
+            <img
+              src={logo}
+              alt="Lattium"
               className="h-8 w-auto max-w-[120px] object-contain"
             />
           </div>
         )}
         <button
           onClick={onToggle}
-          className={`p-2 hover:bg-gray-100 rounded-lg transition-all duration-300 flex items-center justify-center ${
-            collapsed ? 'relative' : 'absolute right-3'
-          }`}
+          className={`p-2 hover:bg-gray-100 rounded-lg transition-all duration-300 flex items-center justify-center ${collapsed ? 'relative' : 'absolute right-3'
+            }`}
         >
           {collapsed ? <ChevronRight className="w-5 h-5 text-gray-500" /> : <ChevronLeft className="w-5 h-5 text-gray-500" />}
         </button>

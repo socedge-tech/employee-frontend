@@ -53,7 +53,7 @@ export const RoleDropdown: React.FC<RoleDropdownProps> = ({
         <option value="">{isLoading ? "Loading..." : "Select Role"}</option>
         {roles.map((role) => (
           <option key={role.id} value={role.id}>
-            {role.role_name}
+            {role.name}
           </option>
         ))}
       </select>
