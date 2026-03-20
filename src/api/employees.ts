@@ -71,18 +71,36 @@ export const getEmployee = async (id: number): Promise<Employee> => {
   }
 };
 
-export const createEmployee = async (data: any): Promise<Employee> => {
+export const createEmployee = async (data: FormData | Record<string, any>): Promise<Employee> => {
   try {
-    const response = await axiosInstance.post("/employees", data);
+    // Check if data is FormData
+    const isFormData = data instanceof FormData;
+
+    const response = await axiosInstance.post("/employees", data, {
+      headers: isFormData ? {
+        'Content-Type': 'multipart/form-data',
+      } : {
+        'Content-Type': 'application/json',
+      },
+    });
     return response.data.data;
   } catch (error: any) {
     throw error.response?.data || { message: "Failed to create employee" };
   }
 };
 
-export const updateEmployee = async (id: number, data: any): Promise<Employee> => {
+export const updateEmployee = async (id: number, data: FormData | Record<string, any>): Promise<Employee> => {
   try {
-    const response = await axiosInstance.put(`/employees/${id}`, data);
+    // Check if data is FormData
+    const isFormData = data instanceof FormData;
+
+    const response = await axiosInstance.put(`/employees/${id}`, data, {
+      headers: isFormData ? {
+        'Content-Type': 'multipart/form-data',
+      } : {
+        'Content-Type': 'application/json',
+      },
+    });
     return response.data.data;
   } catch (error: any) {
     throw error.response?.data || { message: "Failed to update employee" };
@@ -94,5 +112,14 @@ export const deleteEmployee = async (id: number): Promise<void> => {
     await axiosInstance.delete(`/employees/${id}`);
   } catch (error: any) {
     throw error.response?.data || { message: "Failed to delete employee" };
+  }
+};
+
+export const generateEmployeeId = async (): Promise<string> => {
+  try {
+    const response = await axiosInstance.get("/employees/generate-id");
+    return response.data.data?.employee_id || "";
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to generate employee ID" };
   }
 };
