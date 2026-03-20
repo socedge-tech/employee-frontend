@@ -90,7 +90,7 @@ function mapDepartments(deptData: any[]): DepartmentNode[] {
     id: d.id,
     name: d.department_name,
     manager: d.manager?.username ?? (d.manager_id ? `Manager #${d.manager_id}` : "Unassigned"),
-    headcount: d.headcount ?? 0,
+    headcount: d.people_count ?? d.department_employee_count ?? d.headcount ?? 0,
     teams: (d.teams ?? []).map((t: any) => ({
       id: t.id,
       name: t.team_name ?? t.name,

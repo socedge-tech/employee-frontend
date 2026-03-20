@@ -44,9 +44,13 @@ const leaveTypeColors = {
 
 export function LeaveManagement() {
   const { user } = useAuth();
-  const isSuperAdmin = user?.roles?.includes(UserRole.SUPER_ADMIN);
-  const isAdmin = user?.roles?.includes(UserRole.ADMIN);
-  const isManager = user?.roles?.includes(UserRole.MANAGER);
+  // Robust role checks (handle both frontend enum and backend raw string)
+  const userRoles = [...(user?.roles || []), user?.role].filter(Boolean) as string[];
+  const normalizeRole = (r: string) => r.toUpperCase().replace(/[\s_]+/g, '');
+
+  const isSuperAdmin = userRoles.some(r => normalizeRole(r) === 'SUPERADMIN');
+  const isAdmin = userRoles.some(r => normalizeRole(r) === 'ADMIN');
+  const isManager = userRoles.some(r => normalizeRole(r) === 'MANAGER');
   const isEmployee = !isSuperAdmin && !isAdmin && !isManager;
 
   const [activeTab, setActiveTab] = useState("requests");
@@ -99,143 +103,121 @@ export function LeaveManagement() {
       ]);
 
       if (policiesRes.status === 'fulfilled') setPolicies(policiesRes.value.data || []);
+
+      const userMap: Record<number, any> = {};
+
       if (pendingRes.status === 'fulfilled') {
-        let pendingData = pendingRes.value.data || [];
+        const pendingData = pendingRes.value.data || [];
 
-        // Fetch unique employee details for pending requests
-        const userIds = [...new Set(pendingData.map((req: any) => req.user_id).filter(Boolean))];
-        const employeeMap: Record<number, any> = {};
+        // Fetch and Attach employee details for each request
+        const uniqueUserIds = [...new Set(pendingData.map((req: any) => req.user_id || req.approved_by).filter(Boolean))];
 
         await Promise.allSettled(
-          userIds.map(async (uid: any) => {
+          uniqueUserIds.map(async (uid: any) => {
             try {
               const emp = await getEmployee(uid);
-              employeeMap[uid] = emp;
+              userMap[uid] = emp;
             } catch (e) {
-              console.error(`Failed to fetch employee ${uid}`);
+              console.error(`Failed to fetch user ${uid}`);
             }
           })
         );
 
-        // Attach employee to each request
-        pendingData = pendingData.map((req: any) => ({
-          ...req,
-          employee: employeeMap[req.user_id]?.details
-        }));
+        const mappedData = pendingData.map((req: any) => {
+          const approverFull = userMap[req.approved_by];
+          const employeeFull = userMap[req.user_id];
+          const approverData = approverFull?.details;
+          const employeeData = employeeFull?.details;
 
-        setRequests(pendingData);
-      }
-      if (historyRes.status === 'fulfilled') {
-        const historyData = historyRes.value.data;
-        let finalHistory = Array.isArray(historyData) ? historyData : (historyData?.data || []);
-        
-        const approverIds = [...new Set(finalHistory.map((req: any) => req.approved_by).filter(Boolean))];
-        const approverMap: Record<number, any> = {};
-        
-        await Promise.allSettled(
-          approverIds.map(async (uid: any) => {
-            try {
-              const emp = await getEmployee(uid);
-              approverMap[uid] = emp;
-            } catch (e) {
-              console.error(`Failed to fetch approver ${uid}`);
-            }
-          })
-        );
+          let approverName: string;
+          if (!req.approved_by) {
+            approverName = 'Pending';
+          } else if (approverData?.first_name || approverData?.last_name) {
+            approverName = `${approverData.first_name || ''} ${approverData.last_name || ''}`.trim();
+          } else if (approverFull?.username) {
+            approverName = approverFull.username;
+          } else {
+            approverName = `User #${req.approved_by}`;
+          }
 
-        finalHistory = finalHistory.map((req: any) => {
-            const approverFull = approverMap[req.approved_by];
-            const approverData = approverFull?.details;
+          const roleName = approverFull?.roles?.[0]?.name || approverFull?.roles?.[0]?.role_name;
+          const approverDetails = roleName || approverData?.department?.department_name || approverData?.job_role || '';
 
-            let approverName: string;
-            if (!req.approved_by) {
-              approverName = 'Pending';
-            } else if (approverData?.first_name || approverData?.last_name) {
-              approverName = `${approverData.first_name || ''} ${approverData.last_name || ''}`.trim();
-            } else if (approverFull?.username) {
-              approverName = approverFull.username;
-            } else {
-              approverName = `User #${req.approved_by}`;
-            }
-
-            const roleName = approverFull?.roles?.[0]?.name || approverFull?.roles?.[0]?.role_name;
-            const approverDetails = roleName || approverData?.department?.department_name || approverData?.job_role || '';
-
-            return {
-              ...req,
-              approverName,
-              approverDetails
-            };
+          return {
+            ...req,
+            approverName,
+            approverDetails,
+            employee: employeeData
+          };
         });
 
-        setLeaveHistory(finalHistory);
+        setRequests(mappedData);
+        if (isEmployee) {
+          setLeaves(mappedData);
+        }
       }
+
+      if (historyRes.status === 'fulfilled') {
+        // Map history data as well
+        const historyData = historyRes.value.data;
+        const hData = Array.isArray(historyData) ? historyData : (historyData?.data || []);
+
+        // Ensure all users in history are also in userMap
+        const historyUserIds = [...new Set(hData.map((req: any) => req.user_id || req.approved_by).filter(Boolean))];
+        const missingUserIds = historyUserIds.filter(id => !userMap[id as number]);
+
+        if (missingUserIds.length > 0) {
+          await Promise.allSettled(
+            missingUserIds.map(async (uid: any) => {
+              try {
+                const emp = await getEmployee(uid);
+                userMap[uid] = emp;
+              } catch (e) {
+                console.error(`Failed to fetch user ${uid}`);
+              }
+            })
+          );
+        }
+
+        const mappedHistory = hData.map((req: any) => {
+          const approverFull = userMap[req.approved_by];
+          const employeeFull = userMap[req.user_id];
+          const approverData = approverFull?.details;
+          const employeeData = employeeFull?.details;
+
+          let approverName: string;
+          if (!req.approved_by) {
+            approverName = 'Pending';
+          } else if (approverData?.first_name || approverData?.last_name) {
+            approverName = `${approverData.first_name || ''} ${approverData.last_name || ''}`.trim();
+          } else if (approverFull?.username) {
+            approverName = approverFull.username;
+          } else {
+            approverName = `User #${req.approved_by}`;
+          }
+
+          return {
+            ...req,
+            approverName,
+            employee: employeeData,
+            employeeName: employeeData ? `${employeeData.first_name || ''} ${employeeData.last_name || ''}`.trim() : 'Unknown',
+            employeeId: employeeData?.employee_id || ''
+          };
+        });
+
+        setLeaveHistory(mappedHistory);
+      }
+
       if (statsRes.status === 'fulfilled') setLeaveStats(statsRes.value.data);
       if (balanceRes.status === 'fulfilled') setLeaveBalances(balanceRes.value.data || []);
       if (attStatsRes.status === 'fulfilled') setAttendanceStats(attStatsRes.value.data);
 
-      if (isEmployee) {
-        try {
-          const res = await fetch("http://localhost:5000/leaves/my-requests", {
-            headers: {
-              "Authorization": `Bearer ${localStorage.getItem("token") || ""}`
-            }
-          });
-          const result = await res.json();
-          console.log("API:", result);
-
-          let leavesData = result.data || [];
-
-          // Fetch approver details
-          const approverIds = [...new Set(leavesData.map((req: any) => req.approved_by).filter(Boolean))];
-          const approverMap: Record<number, any> = {};
-
-          await Promise.allSettled(
-            approverIds.map(async (uid: any) => {
-              try {
-                const emp = await getEmployee(uid);
-                approverMap[uid] = emp;
-              } catch (e) {
-                console.error(`Failed to fetch approver ${uid}`);
-              }
-            })
-          );
-
-          leavesData = leavesData.map((req: any) => {
-            const approverFull = approverMap[req.approved_by];
-            const approverData = approverFull?.details;
-
-            let approverName: string;
-            if (!req.approved_by) {
-              approverName = 'Pending';
-            } else if (approverData?.first_name || approverData?.last_name) {
-              approverName = `${approverData.first_name || ''} ${approverData.last_name || ''}`.trim();
-            } else if (approverFull?.username) {
-              approverName = approverFull.username;
-            } else {
-              approverName = `User #${req.approved_by}`;
-            }
-
-            const roleName = approverFull?.roles?.[0]?.name || approverFull?.roles?.[0]?.role_name;
-            const approverDetails = roleName || approverData?.department?.department_name || approverData?.job_role || '';
-
-            return {
-              ...req,
-              approverName,
-              approverDetails
-            };
-          });
-
-          setLeaves(leavesData);
-        } catch (e) {
-          console.error("Failed to fetch leaves", e);
-        }
-      }
-
       const todayStr = new Date().toISOString().split('T')[0];
       if (isAdmin || isSuperAdmin || isManager) {
-        const teamLogs = await getTeamAttendanceLogs({ date: todayStr });
-        setAttendance(teamLogs.data || []);
+        if (attStatsRes.status === 'fulfilled') {
+          const teamLogs = await getTeamAttendanceLogs({ date: todayStr });
+          setAttendance(teamLogs.data || []);
+        }
       } else {
         if (myAttendanceRes.status === 'fulfilled') setAttendance(myAttendanceRes.value.data || []);
       }
@@ -340,20 +322,22 @@ export function LeaveManagement() {
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Present": return "bg-green-100 text-green-700";
-      case "Late": return "bg-amber-100 text-amber-700";
-      case "Half Day": return "bg-blue-100 text-blue-700";
-      case "Absent": return "bg-red-100 text-red-700";
-      case "Approved": return "bg-green-100 text-green-700";
-      case "Pending": return "bg-amber-100 text-amber-700";
-      case "Rejected": return "bg-red-100 text-red-700";
+    const s = status?.toUpperCase();
+    switch (s) {
+      case "PRESENT": return "bg-green-100 text-green-700";
+      case "LATE": return "bg-amber-100 text-amber-700";
+      case "HALF DAY":
+      case "HALF_DAY": return "bg-blue-100 text-blue-700";
+      case "ABSENT": return "bg-red-100 text-red-700";
+      case "APPROVED": return "bg-green-100 text-green-700";
+      case "PENDING": return "bg-amber-100 text-amber-700";
+      case "REJECTED": return "bg-red-100 text-red-700";
       default: return "bg-gray-100 text-gray-700";
     }
   };
 
   const tabs = [
-    { id: "requests", label: isEmployee ? "My Requests" : "Leave Requests" },
+    { id: "requests", label: isEmployee ? "My Leave Requests" : "Leave Requests" },
     { id: "history", label: isEmployee ? "My Leave History" : "Leave History" },
     { id: "policies", label: "Leave Policies" },
     ...(!isEmployee ? [{ id: "statistics", label: "Statistics" }] : []),
@@ -373,6 +357,28 @@ export function LeaveManagement() {
     return matchesEmployee && matchesSearch && matchesPolicy && matchesStatus;
   });
 
+  const getDynamicBalances = () => {
+    return policies.map((policy: any) => {
+      const totalDays = Number(policy.days_per_year || policy.total_days || 0);
+
+      // Calculate used days from approved leaves
+      const usedDays = leaves
+        .filter((l: any) => l.status?.toUpperCase() === 'APPROVED' && l.leave_policy_id == policy.id)
+        .reduce((sum: number, l: any) => sum + Number(l.duration || l.days || 0), 0);
+
+      const balance = Math.max(0, totalDays - usedDays);
+
+      return {
+        leave_policy_id: policy.id,
+        policy_name: policy.policy_name || policy.name,
+        total_days: totalDays,
+        used: usedDays,
+        balance: balance,
+        color: policy.leave_color || policy.color || 'blue'
+      };
+    }).filter(b => b.total_days > 0);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -382,10 +388,10 @@ export function LeaveManagement() {
           <p className="text-gray-500 mt-1">Manage leave requests, policies, and employee attendance</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
+          {/* <Button variant="outline" className="gap-2">
             <Download className="w-4 h-4" />
             Export Report
-          </Button>
+          </Button> */}
           {activeTab === "policies" && (isSuperAdmin || isAdmin) && (
             <Button className="gap-2" onClick={() => { setEditingPolicy(null); setShowPolicyModal(true); }}>
               <Plus className="w-4 h-4" />
@@ -403,8 +409,8 @@ export function LeaveManagement() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === tab.id
-                  ? "border-indigo-600 text-indigo-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                ? "border-indigo-600 text-indigo-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
             >
               {tab.label}
@@ -429,21 +435,22 @@ export function LeaveManagement() {
               <CardContent>
                 <div className="space-y-4">
                   {requests.map((request) => {
-                    const name = request.employee
+                    const isOwnRequest = Number(request.user_id) === Number(user?.id);
+                    const name = isOwnRequest ? "You" : (request.employee
                       ? `${request.employee.first_name || ""} ${request.employee.last_name || ""}`.trim()
-                      : request.employee_name || "Unknown";
+                      : request.employee_name || "you");
 
                     const empId =
                       request.employee?.employee_id ||
                       request.employee_id ||
-                      "-";
+                      "";
 
                     const jobRole = request.employee?.job_role || "";
 
                     const leaveType = request.leave_policy?.leave_type || request.leave_policy?.name || request.leave_type || "-";
 
                     const profilePicRaw =
-                      request.employee?.profile_picture ||
+                      request.employee?.details?.profile_picture ||
                       request.profile_picture ||
                       null;
 
@@ -839,23 +846,23 @@ export function LeaveManagement() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Approved By
                       </th>
-                      {!isEmployee && (
+                      {/* {!isEmployee && (
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Actions
                         </th>
-                      )}
+                      )} */}
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {isEmployee ? (
-                      leaves.length === 0 ? (
+                      leaves.filter((i: any) => i.status === 'APPROVED').length === 0 ? (
                         <tr>
                           <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
-                            <p>No records found</p>
+                            <p>No approved records found</p>
                           </td>
                         </tr>
                       ) : (
-                        leaves.map((item) => (
+                        leaves.filter((i: any) => i.status === 'APPROVED').map((item) => (
                           <tr key={item.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 text-sm text-gray-900">
                               <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white ${getLeaveTypeColor(item.leave_policy?.leave_type || item.leave_policy?.name || item.leave_type)}`}>
@@ -882,42 +889,51 @@ export function LeaveManagement() {
                         ))
                       )
                     ) : (
-                      filteredHistory.map((leave: any) => (
-                        <tr key={leave.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4">
-                            <div>
-                              <p className="font-medium text-gray-900">{leave.user?.full_name || leave.employeeName || 'N/A'}</p>
-                              <p className="text-xs text-gray-500">{leave.user?.employee_id || leave.employeeId || 'N/A'}</p>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white ${getLeaveTypeColor(leave.leave_policy?.name || leave.leaveType)}`}>
-                              {leave.leave_policy?.name || leave.leaveType}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-900">{leave.start_date ? new Date(leave.start_date).toLocaleDateString() : leave.startDate}</td>
-                          <td className="px-6 py-4 text-sm text-gray-900">{leave.end_date ? new Date(leave.end_date).toLocaleDateString() : leave.endDate}</td>
-                          <td className="px-6 py-4 text-sm text-gray-900">{leave.duration || leave.days}</td>
-                          <td className="px-6 py-4">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(leave.status)}`}>
-                              {leave.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex flex-col">
-                              <span className="text-sm font-medium text-gray-900">{leave.approverName}</span>
-                              {leave.approverDetails && leave.approverName !== 'Pending' && (
-                                <span className="text-xs text-gray-500">{leave.approverDetails}</span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <button className="p-1 hover:bg-gray-100 rounded">
-                              <Eye className="w-4 h-4 text-gray-600" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))
+                      filteredHistory.map((leave: any) => {
+                        const name = leave.user?.details
+                          ? `${leave.user.details.first_name || ''} ${leave.user.details.last_name || ''}`.trim()
+                          : (leave.employeeName || 'Unknown');
+                        const empId = leave.user?.details?.employee_id || leave.employeeId || "";
+                        const leaveType = leave.leave_policy?.policy_name || leave.leave_policy?.leave_type || leave.leaveType || "-";
+                        const approverName = leave.approver?.username || leave.approverName || (leave.status === 'PENDING' ? 'Pending' : '-');
+
+                        return (
+                          <tr key={leave.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4">
+                              <div>
+                                <p className="font-medium text-gray-900">{name}</p>
+                                <p className="text-xs text-gray-500">{empId}</p>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white ${getLeaveTypeColor(leaveType)}`}>
+                                {leaveType}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-900">{leave.start_date ? new Date(leave.start_date).toLocaleDateString() : leave.startDate}</td>
+                            <td className="px-6 py-4 text-sm text-gray-900">{leave.end_date ? new Date(leave.end_date).toLocaleDateString() : leave.endDate}</td>
+                            <td className="px-6 py-4 text-sm text-gray-900">{leave.duration || leave.days}</td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(leave.status)}`}>
+                                {leave.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium text-gray-900">{approverName}</span>
+                                {leave.rejection_reason && (
+                                  <span className="text-xs text-red-500">{leave.rejection_reason}</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <button className="p-1 hover:bg-gray-100 rounded">
+                                <Eye className="w-4 h-4 text-gray-600" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -929,7 +945,7 @@ export function LeaveManagement() {
           {(() => {
             const currentYear = new Date().getFullYear();
             const sourceData = isEmployee ? leaves : leaveHistory;
-            
+
             // Total leaves taken this year (approved only)
             const thisYearLeaves = sourceData.filter((l: any) => {
               const year = l.start_date ? new Date(l.start_date).getFullYear() : null;
@@ -1034,10 +1050,10 @@ export function LeaveManagement() {
                     {(() => {
                       const totalDays = Number(policy.days_per_year || policy.total_days || policy.totalDays || 0);
                       const usedDays = leaves
-                             .filter((l: any) => l.status?.toUpperCase() === 'APPROVED' && l.leave_policy_id == policy.id)
-                             .reduce((sum: number, l: any) => sum + Number(l.duration || l.days || 0), 0);
+                        .filter((l: any) => l.status?.toUpperCase() === 'APPROVED' && l.leave_policy_id == policy.id)
+                        .reduce((sum: number, l: any) => sum + Number(l.duration || l.days || 0), 0);
                       const balance = Math.max(0, totalDays - usedDays);
-                      
+
                       return (
                         <>
                           <div className="flex items-center justify-between">
@@ -1110,19 +1126,21 @@ export function LeaveManagement() {
           {/* Overview Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {[
-              { label: "Total Leave Days", value: "1,247", icon: Calendar, color: "indigo", change: "+12%" },
-              { label: "Avg per Employee", value: "8.2", icon: Users, color: "green", change: "+5%" },
-              { label: "Approval Rate", value: "94%", icon: Check, color: "blue", change: "+2%" },
-              { label: "Utilization Rate", value: "68%", icon: TrendingUp, color: "purple", change: "+8%" },
+              { label: "Pending Requests", value: leaveStats?.pending_requests?.toString() || "0", icon: Calendar, color: "indigo", change: "" },
+              { label: "Approved This Month", value: leaveStats?.approved_this_month?.toString() || "0", icon: Check, color: "green", change: "" },
+              { label: "Out Today", value: leaveStats?.out_today_count?.toString() || "0", icon: Users, color: "blue", change: "" },
+              { label: "Rejected This Month", value: leaveStats?.rejected_this_month?.toString() || "0", icon: TrendingUp, color: "purple", change: "" },
             ].map((stat, idx) => (
               <Card key={idx}>
                 <CardContent className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-500">{stat.label}</p>
                     <p className="text-3xl font-semibold mt-2">{stat.value}</p>
-                    <p className={`text-sm mt-1 ${stat.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
-                      {stat.change} from last year
-                    </p>
+                    {stat.change && (
+                      <p className={`text-sm mt-1 ${stat.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
+                        {stat.change} from last year
+                      </p>
+                    )}
                   </div>
                   <div className={`p-3 bg-${stat.color}-100 rounded-lg`}>
                     <stat.icon className={`w-6 h-6 text-${stat.color}-600`} />
@@ -1146,10 +1164,10 @@ export function LeaveManagement() {
                     const type = l.leave_policy?.name || l.leave_policy?.policy_name || l.leave_policy?.leave_type || l.leaveType || 'Other';
                     distCounts[type] = (distCounts[type] || 0) + (l.duration || l.days || 0);
                   });
-                  
+
                   const totalDaysMapped = Object.values(distCounts).reduce((a, b) => a + b, 0);
                   const colors = ['blue', 'red', 'purple', 'pink', 'indigo', 'amber', 'green', 'teal'];
-                  
+
                   const distributionArr = Object.entries(distCounts)
                     .sort((a, b) => b[1] - a[1])
                     .map(([type, count], idx) => ({
@@ -1160,7 +1178,7 @@ export function LeaveManagement() {
                     }));
 
                   if (distributionArr.length === 0) {
-                     return <p className="text-sm text-gray-500 text-center py-4">No data available</p>;
+                    return <p className="text-sm text-gray-500 text-center py-4">No data available</p>;
                   }
 
                   return distributionArr.map((item, idx) => (
@@ -1202,34 +1220,24 @@ export function LeaveManagement() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employees</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Days</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Avg/Employee</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pending</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Utilization</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {[
-                      { dept: "Engineering", employees: 450, total: 3825, avg: 8.5, pending: 12, util: 71 },
-                      { dept: "Sales", employees: 320, total: 2688, avg: 8.4, pending: 8, util: 70 },
-                      { dept: "Marketing", employees: 180, total: 1476, avg: 8.2, pending: 5, util: 68 },
-                      { dept: "HR", employees: 120, total: 960, avg: 8.0, pending: 3, util: 67 },
-                      { dept: "Finance", employees: 177, total: 1416, avg: 8.0, pending: 4, util: 67 },
-                    ].map((row, idx) => (
+                    {(leaveStats?.department_analytics || []).map((row: any, idx: number) => (
                       <tr key={idx} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 font-medium text-gray-900">{row.dept}</td>
+                        <td className="px-6 py-4 font-medium text-gray-900">{row.name}</td>
                         <td className="px-6 py-4 text-sm text-gray-900">{row.employees}</td>
-                        <td className="px-6 py-4 text-sm text-gray-900">{row.total}</td>
-                        <td className="px-6 py-4 text-sm text-gray-900">{row.avg}</td>
-                        <td className="px-6 py-4">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
-                            {row.pending}
-                          </span>
+                        <td className="px-6 py-4 text-sm text-gray-900">{row.leaves}</td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          {row.employees > 0 ? (row.leaves / row.employees).toFixed(1) : "0"}
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
                             <div className="flex-1 bg-gray-200 rounded-full h-2">
-                              <div className="bg-indigo-600 h-2 rounded-full" style={{ width: `${row.util}%` }}></div>
+                              <div className="bg-indigo-600 h-2 rounded-full" style={{ width: `${Math.min(100, (row.employees > 0 ? (row.leaves / (row.employees * 10)) * 100 : 0))}%` }}></div>
                             </div>
-                            <span className="text-sm font-medium">{row.util}%</span>
+                            <span className="text-sm font-medium">{Math.min(100, (row.employees > 0 ? (row.leaves / (row.employees * 10)) * 100 : 0)).toFixed(0)}%</span>
                           </div>
                         </td>
                       </tr>
@@ -1274,34 +1282,36 @@ export function LeaveManagement() {
       {/* Attendance Tracking Tab */}
       {activeTab === "attendance" && (
         <div className="space-y-6">
-          {/* Attendance Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {[
-              { label: "Present Today", value: attendanceStats?.presentToday || 0, icon: Check, color: "green" },
-              { label: "Late Arrivals", value: attendanceStats?.lateToday || 0, icon: Clock, color: "amber" },
-              { label: "Half Days", value: 0, icon: Calendar, color: "blue" },
-              { label: "Absent", value: attendanceStats?.absentToday || 0, icon: X, color: "red" },
-            ].map((stat, idx) => (
-              <Card key={idx}>
-                <CardContent className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-500">{stat.label}</p>
-                    <p className="text-3xl font-semibold mt-2">{stat.value}</p>
-                  </div>
-                  <div className={`p-3 bg-${stat.color}-100 rounded-lg`}>
-                    <stat.icon className={`w-6 h-6 text-${stat.color}-600`} />
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          {/* Attendance Summary Cards - Hide for regular employees */}
+          {!isEmployee && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              {[
+                { label: "Present Today", value: attendanceStats?.presentToday || 0, icon: Check, color: "green" },
+                { label: "Late Arrivals", value: attendanceStats?.lateToday || 0, icon: Clock, color: "amber" },
+                { label: "Half Days", value: attendanceStats?.halfDayToday || 0, icon: Calendar, color: "blue" },
+                { label: "Absent", value: attendanceStats?.absentToday || 0, icon: X, color: "red" },
+              ].map((stat, idx) => (
+                <Card key={idx}>
+                  <CardContent className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-500">{stat.label}</p>
+                      <p className="text-3xl font-semibold mt-2">{stat.value}</p>
+                    </div>
+                    <div className={`p-3 bg-${stat.color}-100 rounded-lg`}>
+                      <stat.icon className={`w-6 h-6 text-${stat.color}-600`} />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
 
           {/* My Leave Balance & Request - Only for Admin, Manager, Employee */}
           {user && user.role !== UserRole.SUPER_ADMIN && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Leave Balance Cards */}
               <div className="lg:col-span-2 space-y-4">
-                <Card>
+                {/* <Card>
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <CardTitle>Attendance Actions</CardTitle>
@@ -1326,7 +1336,7 @@ export function LeaveManagement() {
                       </Button>
                     </div>
                   </CardContent>
-                </Card>
+                </Card> */}
 
                 <Card>
                   <CardHeader>
@@ -1341,25 +1351,7 @@ export function LeaveManagement() {
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {(() => {
-                        // Calculate dynamic balances based on Policies and My Requests (leaves)
-                        const dynamicBalances = policies.map((policy: any) => {
-                           const totalDays = Number(policy.days_per_year || policy.total_days || 0);
-                           
-                           // Find all APPROVED leave requests for this exact policy for the employee
-                           const usedDays = leaves
-                             .filter((l: any) => l.status?.toUpperCase() === 'APPROVED' && l.leave_policy_id == policy.id)
-                             .reduce((sum: number, l: any) => sum + Number(l.duration || l.days || 0), 0);
-                             
-                           const balance = Math.max(0, totalDays - usedDays);
-                           
-                           return {
-                             policy_name: policy.policy_name || policy.name,
-                             total_days: totalDays,
-                             used: usedDays,
-                             balance: balance,
-                             color: policy.leave_color || policy.color || 'blue'
-                           };
-                        }).filter(b => b.total_days > 0); // Only show policies that actually grant days
+                        const dynamicBalances = getDynamicBalances();
 
                         if (dynamicBalances.length === 0) {
                           return <p className="text-sm text-gray-500 col-span-2">No leave policies assigned yet.</p>;
@@ -1508,14 +1500,20 @@ export function LeaveManagement() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {attendance.map((record: any) => (
-                      <tr key={record.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4">
-                          <div>
-                            <p className="font-medium text-gray-900">{record.user?.full_name || record.employeeName || 'N/A'}</p>
-                            <p className="text-xs text-gray-500">{record.user?.employee_id || record.employeeId || 'N/A'}</p>
-                          </div>
-                        </td>
+                    {attendance.map((record: any) => {
+                      const name = record.user?.details 
+                        ? `${record.user.details.first_name || ''} ${record.user.details.last_name || ''}`.trim()
+                        : (record.employeeName || 'Unknown');
+                      const empId = record.user?.details?.employee_id || record.employeeId || "N/A";
+                      
+                      return (
+                        <tr key={record.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4">
+                            <div>
+                              <p className="font-medium text-gray-900">{name}</p>
+                              <p className="text-xs text-gray-500">{empId}</p>
+                            </div>
+                          </td>
                         <td className="px-6 py-4 text-sm text-gray-900">
                           {record.date ? new Date(record.date).toLocaleDateString() : record.date}
                         </td>
@@ -1545,7 +1543,8 @@ export function LeaveManagement() {
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900">{record.location || 'N/A'}</td>
                       </tr>
-                    ))}
+                      );
+                    })}
                     {!loading && attendance.length === 0 && (
                       <tr>
                         <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
@@ -1559,94 +1558,96 @@ export function LeaveManagement() {
             </CardContent>
           </Card>
 
-          {/* Attendance Analytics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Weekly Attendance Overview</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {[
-                    { day: "Monday", present: 1189, late: 18, absent: 10 },
-                    { day: "Tuesday", present: 1195, late: 15, absent: 8 },
-                    { day: "Wednesday", present: 1178, late: 23, absent: 12 },
-                    { day: "Thursday", present: 1192, late: 19, absent: 9 },
-                    { day: "Friday", present: 1165, late: 28, absent: 15 },
-                  ].map((item, idx) => (
-                    <div key={idx} className="p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium">{item.day}</span>
-                        <span className="text-sm text-gray-500">Total: {item.present + item.late + item.absent}</span>
+          {/* Attendance Analytics - Hide for regular employees */}
+          {!isEmployee && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Weekly Attendance Overview</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {[
+                      { day: "Monday", present: 1189, late: 18, absent: 10 },
+                      { day: "Tuesday", present: 1195, late: 15, absent: 8 },
+                      { day: "Wednesday", present: 1178, late: 23, absent: 12 },
+                      { day: "Thursday", present: 1192, late: 19, absent: 9 },
+                      { day: "Friday", present: 1165, late: 28, absent: 15 },
+                    ].map((item, idx) => (
+                      <div key={idx} className="p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium">{item.day}</span>
+                          <span className="text-sm text-gray-500">Total: {item.present + item.late + item.absent}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="flex-1 text-center p-2 bg-green-100 rounded">
+                            <p className="text-xs text-green-700">Present</p>
+                            <p className="text-sm font-semibold text-green-900">{item.present}</p>
+                          </div>
+                          <div className="flex-1 text-center p-2 bg-amber-100 rounded">
+                            <p className="text-xs text-amber-700">Late</p>
+                            <p className="text-sm font-semibold text-amber-900">{item.late}</p>
+                          </div>
+                          <div className="flex-1 text-center p-2 bg-red-100 rounded">
+                            <p className="text-xs text-red-700">Absent</p>
+                            <p className="text-sm font-semibold text-red-900">{item.absent}</p>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <div className="flex-1 text-center p-2 bg-green-100 rounded">
-                          <p className="text-xs text-green-700">Present</p>
-                          <p className="text-sm font-semibold text-green-900">{item.present}</p>
-                        </div>
-                        <div className="flex-1 text-center p-2 bg-amber-100 rounded">
-                          <p className="text-xs text-amber-700">Late</p>
-                          <p className="text-sm font-semibold text-amber-900">{item.late}</p>
-                        </div>
-                        <div className="flex-1 text-center p-2 bg-red-100 rounded">
-                          <p className="text-xs text-red-700">Absent</p>
-                          <p className="text-sm font-semibold text-red-900">{item.absent}</p>
-                        </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Attendance Insights</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <TrendingUp className="w-5 h-5 text-green-600" />
+                        <h4 className="font-medium text-green-900">Excellent Attendance</h4>
                       </div>
+                      <p className="text-sm text-green-700">Engineering department has 97% attendance rate this week</p>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Attendance Insights</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <TrendingUp className="w-5 h-5 text-green-600" />
-                      <h4 className="font-medium text-green-900">Excellent Attendance</h4>
+                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Clock className="w-5 h-5 text-amber-600" />
+                        <h4 className="font-medium text-amber-900">Late Arrivals Peak</h4>
+                      </div>
+                      <p className="text-sm text-amber-700">Fridays show 65% more late arrivals than other weekdays</p>
                     </div>
-                    <p className="text-sm text-green-700">Engineering department has 97% attendance rate this week</p>
-                  </div>
 
-                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Clock className="w-5 h-5 text-amber-600" />
-                      <h4 className="font-medium text-amber-900">Late Arrivals Peak</h4>
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Users className="w-5 h-5 text-blue-600" />
+                        <h4 className="font-medium text-blue-900">Remote Work Trend</h4>
+                      </div>
+                      <p className="text-sm text-blue-700">38% of employees work remotely on average this month</p>
                     </div>
-                    <p className="text-sm text-amber-700">Fridays show 65% more late arrivals than other weekdays</p>
-                  </div>
 
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Users className="w-5 h-5 text-blue-600" />
-                      <h4 className="font-medium text-blue-900">Remote Work Trend</h4>
+                    <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Calendar className="w-5 h-5 text-purple-600" />
+                        <h4 className="font-medium text-purple-900">Avg Work Hours</h4>
+                      </div>
+                      <p className="text-sm text-purple-700">Employees average 8.3 hours per day, exceeding expectations</p>
                     </div>
-                    <p className="text-sm text-blue-700">38% of employees work remotely on average this month</p>
                   </div>
-
-                  <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Calendar className="w-5 h-5 text-purple-600" />
-                      <h4 className="font-medium text-purple-900">Avg Work Hours</h4>
-                    </div>
-                    <p className="text-sm text-purple-700">Employees average 8.3 hours per day, exceeding expectations</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       )}
 
       {/* Policy Modal */}
       {showPolicyModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <Card className="max-w-2xl w-full">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+          <Card className="max-w-2xl w-full bg-white shadow-2xl border-none">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>{editingPolicy ? "Edit Leave Policy" : "Add New Leave Policy"}</CardTitle>
@@ -1772,8 +1773,8 @@ export function LeaveManagement() {
 
       {/* Leave Request Modal - Only for Admin, Manager, Employee */}
       {showLeaveRequestModal && user && user.role !== UserRole.SUPER_ADMIN && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <Card className="max-w-2xl w-full">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+          <Card className="max-w-2xl w-full bg-white shadow-2xl border-none">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Request Leave</CardTitle>
@@ -1799,7 +1800,7 @@ export function LeaveManagement() {
                       required
                     >
                       <option value="">Select Leave Type</option>
-                      {leaveBalances.map((b: any) => (
+                      {getDynamicBalances().map((b: any) => (
                         <option key={b.leave_policy_id} value={b.leave_policy_id}>
                           {b.policy_name} ({b.balance} days available)
                         </option>

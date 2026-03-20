@@ -48,7 +48,7 @@ export function TopNav() {
     logout();
     navigate("/login");
   };
-  
+
   const [formData, setFormData] = useState({
     // Personal Information
     firstName: "",
@@ -59,7 +59,7 @@ export function TopNav() {
     nationality: "",
     maritalStatus: "",
     bloodGroup: "",
-    
+
     // Primary Contact
     primaryEmail: "",
     primaryPhone: "",
@@ -68,7 +68,7 @@ export function TopNav() {
     primaryState: "",
     primaryZip: "",
     primaryCountry: "",
-    
+
     // Secondary Contact
     secondaryEmail: "",
     secondaryPhone: "",
@@ -77,13 +77,13 @@ export function TopNav() {
     secondaryState: "",
     secondaryZip: "",
     secondaryCountry: "",
-    
+
     // Emergency Contact
     emergencyContactName: "",
     emergencyContactRelationship: "",
     emergencyContactPhone: "",
     emergencyContactEmail: "",
-    
+
     // Job Details
     department: "",
     role: "",
@@ -94,12 +94,12 @@ export function TopNav() {
     workSchedule: "",
     manager: "",
     probationPeriod: "",
-    
+
     // Compensation
     baseSalary: "",
     currency: "USD",
     payFrequency: "Monthly",
-    
+
     // Documents
     passportNumber: "",
     passportExpiry: "",
@@ -107,19 +107,19 @@ export function TopNav() {
     licenseExpiry: "",
     socialSecurityNumber: "",
     taxId: "",
-    
+
     // Bank Details
     bankName: "",
     accountNumber: "",
     routingNumber: "",
     accountHolderName: "",
-    
+
     // Skills & Qualifications
     skills: "",
     certifications: "",
     languages: "",
   });
-  
+
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [educationHistory, setEducationHistory] = useState<Education[]>([]);
   const [employmentHistory, setEmploymentHistory] = useState<Employment[]>([]);
@@ -129,7 +129,7 @@ export function TopNav() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
-    
+
     // Apply capitalization for text-based inputs, excluding email and specific fields
     let processedValue = value;
     if (type === 'text' || e.target.tagName === 'TEXTAREA') {
@@ -138,10 +138,10 @@ export function TopNav() {
         processedValue = capitalizeFirstLetter(value);
       }
     }
-    
+
     setFormData(prev => ({ ...prev, [name]: processedValue }));
   };
-  
+
   // helper functions removed for brevity
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -154,14 +154,14 @@ export function TopNav() {
       compensationSplits
     };
     console.log("Complete Employee Data:", completeData);
-    
+
     // Reset form
     setFormData({
-      firstName: "", lastName: "", middleName: "", dateOfBirth: "", gender: "", nationality: "", 
+      firstName: "", lastName: "", middleName: "", dateOfBirth: "", gender: "", nationality: "",
       maritalStatus: "", bloodGroup: "", primaryEmail: "", primaryPhone: "", primaryAddress: "",
       primaryCity: "", primaryState: "", primaryZip: "", primaryCountry: "", secondaryEmail: "",
       secondaryPhone: "", secondaryAddress: "", secondaryCity: "", secondaryState: "", secondaryZip: "",
-      secondaryCountry: "", emergencyContactName: "", emergencyContactRelationship: "", 
+      secondaryCountry: "", emergencyContactName: "", emergencyContactRelationship: "",
       emergencyContactPhone: "", emergencyContactEmail: "", department: "", role: "", location: "",
       startDate: "", employeeType: "Full-time", employeeId: "", workSchedule: "", manager: "",
       probationPeriod: "", baseSalary: "", currency: "USD", payFrequency: "Monthly",
@@ -176,7 +176,7 @@ export function TopNav() {
     setShowAddEmployee(false);
     setActiveSection("personal");
   };
-  
+
   const sections = [
     { id: "personal", label: "Personal Info" },
     { id: "contact", label: "Contact Details" },
@@ -252,7 +252,7 @@ export function TopNav() {
           </button>
           {showProfile && (
             <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 p-2 z-50">
-              <button 
+              <button
                 onClick={() => {
                   navigate("/profile");
                   setShowProfile(false);
@@ -261,10 +261,10 @@ export function TopNav() {
               >
                 Profile
               </button>
-              <button className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-lg text-sm">Switch to User View</button>
-              <button className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-lg text-sm">Settings</button>
+              {/* <button className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-lg text-sm">Switch to User View</button>
+              <button className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-lg text-sm">Settings</button> */}
               <hr className="my-2" />
-              <button 
+              <button
                 onClick={handleLogout}
                 className="w-full text-left px-4 py-2 hover:bg-gray-50 rounded-lg text-sm text-red-600"
               >
@@ -298,11 +298,10 @@ export function TopNav() {
                     <button
                       key={section.id}
                       onClick={() => setActiveSection(section.id)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        activeSection === section.id
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeSection === section.id
                           ? "bg-indigo-600 text-white"
                           : "text-gray-700 hover:bg-gray-200"
-                      }`}
+                        }`}
                     >
                       {section.label}
                     </button>

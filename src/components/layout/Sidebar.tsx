@@ -37,10 +37,10 @@ const navItems = [
   { path: "/learning", label: "Talent & Growth", icon: GraduationCap },
   { path: "/performance", label: "Performance", icon: TrendingUp },
   { path: "/engagement", label: "Engagement", icon: MessageSquare },
-  { path: "/crm", label: "CRM", icon: Target },
-  { path: "/email-management", label: "Email Management", icon: Mail },
-  { path: "/notify-management", label: "Notify Management", icon: Bell },
-  { path: "/roles-permissions", label: "Roles & Permissions", icon: Shield },
+  // { path: "/crm", label: "CRM", icon: Target },
+  // { path: "/email-management", label: "Email Management", icon: Mail },
+  // { path: "/notify-management", label: "Notify Management", icon: Bell },
+  // { path: "/roles-permissions", label: "Roles & Permissions", icon: Shield },
   { path: "/system-settings", label: "System Settings", icon: Settings },
 ];
 

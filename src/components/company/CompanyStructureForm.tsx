@@ -21,7 +21,7 @@ interface CompanyStructureFormProps {
   isReadOnly: boolean;
   addLocation: () => void;
   updateLocation: (id: string, field: string, value: any) => void;
-  removeLocation: (id: string) => void;
+  removeLocation: (id: string) => Promise<void> | void;
 }
 
 export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
