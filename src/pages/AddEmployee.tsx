@@ -1117,7 +1117,7 @@ export function AddEmployee() {
 
                     {/* Job Details Section */}
                     {activeSection === "job" && (
-                      <div className="animate-in fade-in slide-in-from-left-2 duration-300 space-y-6">
+                      <><div className="animate-in fade-in slide-in-from-left-2 duration-300 space-y-6">
                         <h3 className="text-xl font-bold text-gray-900 border-b border-gray-100 pb-3">Job Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                           <div>
@@ -1131,8 +1131,7 @@ export function AddEmployee() {
                               onChange={handleInputChange}
                               readOnly
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50"
-                              placeholder="EMP-2026-001"
-                            />
+                              placeholder="EMP-2026-001" />
                           </div>
                           <div>
                             <div className="flex items-center justify-between mb-2">
@@ -1201,8 +1200,7 @@ export function AddEmployee() {
                               name="startDate"
                               value={formData.startDate}
                               onChange={handleInputChange}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                           </div>
                           <div>
                             <div className="flex items-center justify-between mb-2">
@@ -1277,8 +1275,7 @@ export function AddEmployee() {
                               value={formData.probationPeriod}
                               onChange={handleInputChange}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                              placeholder="3"
-                            />
+                              placeholder="3" />
                           </div>
                         </div>
                         <select
@@ -1294,23 +1291,22 @@ export function AddEmployee() {
                           ))}
                         </select>
                         {errorStates.roles && <p className="text-xs text-red-500 mt-1">{errorStates.roles}</p>}
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Employment Type <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                          name="employeeType"
-                          value={formData.employeeType}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        >
-                          <option value="Full-time">Full-time</option>
-                          <option value="Part-time">Part-time</option>
-                          <option value="Contract">Contract</option>
-                          <option value="Intern">Intern</option>
-                        </select>
-                      </div>
+                      </div><div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Employment Type <span className="text-red-500">*</span>
+                          </label>
+                          <select
+                            name="employeeType"
+                            value={formData.employeeType}
+                            onChange={handleInputChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          >
+                            <option value="Full-time">Full-time</option>
+                            <option value="Part-time">Part-time</option>
+                            <option value="Contract">Contract</option>
+                            <option value="Intern">Intern</option>
+                          </select>
+                        </div></>
                     )}
 
                     {/* Compensation Section */}
