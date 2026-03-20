@@ -18,8 +18,7 @@ import {
   deleteLeavePolicy
 } from "../api/leaves";
 import {
-  checkIn,
-  checkOut,
+  
   getMyAttendanceLogs,
   getTeamAttendanceLogs,
   getAttendanceStats
@@ -59,20 +58,20 @@ export function LeaveManagement() {
   const [leaveHistory, setLeaveHistory] = useState<any[]>([]);
   const [policies, setPolicies] = useState<any[]>([]);
   const [attendance, setAttendance] = useState<any[]>([]);
-  const [leaveBalances, setLeaveBalances] = useState<any[]>([]);
+  const [, setLeaveBalances] = useState<any[]>([]);
   const [leaveStats, setLeaveStats] = useState<any>(null);
   const [attendanceStats, setAttendanceStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const [currentMonth] = useState(new Date().toLocaleString('default', { month: 'long', year: 'numeric' }));
   const [selectedDepartment, setSelectedDepartment] = useState("All Departments");
-  const [searchEmployee, setSearchEmployee] = useState("");
-  const [selectedEmployee, setSelectedEmployee] = useState("All Employees");
+  const [searchEmployee, ] = useState("");
+  const [selectedEmployee, ] = useState("All Employees");
   const [showPolicyModal, setShowPolicyModal] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<any | null>(null);
   const [showLeaveRequestModal, setShowLeaveRequestModal] = useState(false);
-  const [selectedLeaveType, setSelectedLeaveType] = useState("All");
-  const [selectedStatus, setSelectedStatus] = useState("All");
+  const [selectedLeaveType, ] = useState("All");
+  const [selectedStatus, ] = useState("All");
 
   const [leaveRequestData, setLeaveRequestData] = useState({
     leave_policy_id: "",
@@ -302,20 +301,20 @@ export function LeaveManagement() {
     }
   };
 
-  const handleAttendanceAction = async (action: 'check-in' | 'check-out') => {
-    try {
-      if (action === 'check-in') {
-        await checkIn({ location: 'Remote' });
-        toast.success("Checked in successfully");
-      } else {
-        await checkOut({ location: 'Remote' });
-        toast.success("Checked out successfully");
-      }
-      fetchData();
-    } catch (error) {
-      toast.error(`Failed to ${action}`);
-    }
-  };
+  // const handleAttendanceAction = async (action: 'check-in' | 'check-out') => {
+  //   try {
+  //     if (action === 'check-in') {
+  //       await checkIn({ location: 'Remote' });
+  //       toast.success("Checked in successfully");
+  //     } else {
+  //       await checkOut({ location: 'Remote' });
+  //       toast.success("Checked out successfully");
+  //     }
+  //     fetchData();
+  //   } catch (error) {
+  //     toast.error(`Failed to ${action}`);
+  //   }
+  // };
 
   const getLeaveTypeColor = (type: string) => {
     return leaveTypeColors[type as keyof typeof leaveTypeColors] || "bg-gray-500";

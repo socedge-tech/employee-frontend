@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { Search, Filter, Loader2, Calendar, User, Info } from "lucide-react";
+import { Loader2, Calendar, User, Info } from "lucide-react";
 import { Card, CardHeader, CardContent, CardTitle } from "../ui/card";
 import { getActivityLogs, type ActivityLog } from "../../api/settings.ts";
-import { toast } from "sonner";
+
 
 export function ActivityLogsSection() {
   const [logs, setLogs] = useState<ActivityLog[]>([]);

@@ -25,7 +25,7 @@ export interface DepartmentNode {
 
 export interface MappedOrganization {
   id: number;
-  EntityName: string;
+  EntityName: string | undefined;
   companyCode: string;
   companyType?: string;
   currency?: string;

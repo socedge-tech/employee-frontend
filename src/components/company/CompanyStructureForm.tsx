@@ -7,7 +7,6 @@ import {
   Calendar,
   Trash2,
   PlusCircle,
-  Eye,
   Pencil,
 } from "lucide-react";
 import { Button } from "../ui/button";

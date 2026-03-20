@@ -223,48 +223,48 @@ export function CompanyStructure() {
   } = useCompanyStructure();
 
   const [selectedTeam, setSelectedTeam] = useState<TeamNode | null>(null);
-  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [, setIsDetailLoading] = useState(false);
 
-  const handleTeamView = async (dept: DepartmentNode, team: TeamNode) => {
-    try {
-      setIsDetailLoading(true);
-      const data = await getDepartment(Number(dept.id));
+  // const handleTeamView = async (dept: DepartmentNode, team: TeamNode) => {
+  //   try {
+  //     setIsDetailLoading(true);
+  //     const data = await getDepartment(Number(dept.id));
 
-      const mappedDept: DepartmentNode = {
-        id: data.id,
-        name: data.department_name,
-        manager: data.manager?.username ?? (data.manager_id ? `Manager #${data.manager_id}` : "Unassigned"),
-        headcount: data.headcount ?? (data.teams?.reduce((acc, t) => acc + (t.members?.length || 0), 0) || 0),
-        teams: (data.teams || []).map((t: any) => ({
-          id: t.id,
-          name: t.team_name,
-          lead: t.team_lead?.username ?? "Unassigned",
-          members: Array.isArray(t.members) ? t.members : [],
-          avatars: t.members?.map((m: any) => m.username?.[0]?.toUpperCase()).slice(0, 3) || [],
-        })),
-        branch_id: data.branch_id,
-        expanded: dept.expanded
-      };
+  //     const mappedDept: DepartmentNode = {
+  //       id: data.id,
+  //       name: data.department_name,
+  //       manager: data.manager?.username ?? (data.manager_id ? `Manager #${data.manager_id}` : "Unassigned"),
+  //       headcount: data.headcount ?? (data.teams?.reduce((acc, t) => acc + (t.members?.length || 0), 0) || 0),
+  //       teams: (data.teams || []).map((t: any) => ({
+  //         id: t.id,
+  //         name: t.team_name,
+  //         lead: t.team_lead?.username ?? "Unassigned",
+  //         members: Array.isArray(t.members) ? t.members : [],
+  //         avatars: t.members?.map((m: any) => m.username?.[0]?.toUpperCase()).slice(0, 3) || [],
+  //       })),
+  //       branch_id: data.branch_id,
+  //       expanded: dept.expanded
+  //     };
 
-      setDepartments(prev =>
-        prev.map(d => String(d.id) === String(mappedDept.id) ? { ...mappedDept, expanded: d.expanded } : d)
-      );
+  //     setDepartments(prev =>
+  //       prev.map(d => String(d.id) === String(mappedDept.id) ? { ...mappedDept, expanded: d.expanded } : d)
+  //     );
 
-      setSelectedDept(mappedDept);
+  //     setSelectedDept(mappedDept);
 
-      const targetTeam = mappedDept.teams.find(t => String(t.id) === String(team.id));
-      if (targetTeam) {
-        setSelectedTeam(targetTeam);
-      } else {
-        setSelectedTeam(null);
-      }
-    } catch (error) {
-      console.error("Failed to fetch team details:", error);
-      toast.error("Failed to load team details");
-    } finally {
-      setIsDetailLoading(false);
-    }
-  };
+  //     const targetTeam = mappedDept.teams.find(t => String(t.id) === String(team.id));
+  //     if (targetTeam) {
+  //       setSelectedTeam(targetTeam);
+  //     } else {
+  //       setSelectedTeam(null);
+  //     }
+  //   } catch (error) {
+  //     console.error("Failed to fetch team details:", error);
+  //     toast.error("Failed to load team details");
+  //   } finally {
+  //     setIsDetailLoading(false);
+  //   }
+  // };
 
   const handleViewDepartment = async (dept: DepartmentNode) => {
     try {
