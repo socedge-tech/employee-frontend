@@ -44,7 +44,7 @@ export function RolesPermissions() {
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [isEditingRole, setIsEditingRole] = useState(false);
-  const [roleForm, setRoleForm] = useState({ role_name: "", description: "" });
+  const [roleForm, setRoleForm] = useState({ name: "", description: "" });
   
   const [rolePermissions, setRolePermissions] = useState<number[]>([]);
   const [isSavingPermissions, setIsSavingPermissions] = useState(false);
@@ -86,13 +86,13 @@ export function RolesPermissions() {
   };
 
   const handleCreateRole = async () => {
-    if (!roleForm.role_name) {
+    if (!roleForm.name) {
       toast.error("Role name is required");
       return;
     }
     const formattedRole = {
       ...roleForm,
-      role_name: capitalizeFirstLetter(roleForm.role_name),
+      name: capitalizeFirstLetter(roleForm.name),
       description: capitalizeFirstLetter(roleForm.description)
     };
     try {
@@ -143,7 +143,7 @@ export function RolesPermissions() {
   };
 
   const filteredRoles = roles.filter(role => 
-    role.role_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    role.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     role.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -174,7 +174,7 @@ export function RolesPermissions() {
           </div>
           <Button onClick={() => {
             setIsEditingRole(false);
-            setRoleForm({ role_name: "", description: "" });
+            setRoleForm({ name: "", description: "" });
             setShowRoleModal(true);
           }} className="gap-2">
             <Plus className="w-4 h-4" /> Add New Role
@@ -210,7 +210,7 @@ export function RolesPermissions() {
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-900">{role.role_name}</span>
+                        <span className="font-semibold text-gray-900">{role.name}</span>
                         {selectedRole?.id === role.id && <Check className="w-4 h-4 text-indigo-600" />}
                       </div>
                       <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">{role.description}</p>
@@ -221,7 +221,7 @@ export function RolesPermissions() {
                             e.stopPropagation();
                             setSelectedRole(role);
                             setIsEditingRole(true);
-                            setRoleForm({ role_name: role.role_name, description: role.description });
+                            setRoleForm({ name: role.name, description: role.description });
                             setShowRoleModal(true);
                           }}
                           className="p-1.5 hover:bg-gray-200 rounded-md transition-colors"
@@ -250,7 +250,7 @@ export function RolesPermissions() {
               <Card className="h-full">
                 <CardHeader className="flex flex-row items-center justify-between border-b border-gray-100 pb-4">
                   <div>
-                    <CardTitle className="text-xl">{selectedRole.role_name} Permissions</CardTitle>
+                    <CardTitle className="text-xl">{selectedRole.name} Permissions</CardTitle>
                     <p className="text-sm text-gray-500 mt-1">{selectedRole.description}</p>
                   </div>
                   <Button 
@@ -345,8 +345,8 @@ export function RolesPermissions() {
                     type="text"
                     placeholder="e.g., HR Manager"
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={roleForm.role_name}
-                    onChange={(e) => setRoleForm({ ...roleForm, role_name: capitalizeFirstLetter(e.target.value) })}
+                    value={roleForm.name}
+                    onChange={(e) => setRoleForm({ ...roleForm, name: capitalizeFirstLetter(e.target.value) })}
                   />
                 </div>
                 <div className="space-y-2">

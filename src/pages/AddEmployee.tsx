@@ -463,7 +463,7 @@ export function AddEmployee() {
       
       employee_id: formData.employeeId || undefined,
       department_id: formData.department ? Number(formData.department) : undefined,
-      job_role: capitalizeFirstLetter(rolesList.find(r => r.id.toString() === formData.role)?.role_name || formData.role) || undefined,
+      job_role: capitalizeFirstLetter(rolesList.find(r => r.id.toString() === formData.role)?.name || formData.role) || undefined,
       role_id: formData.role ? Number(formData.role) : undefined,
       employment_type: formData.employeeType || undefined,
       start_date: formData.startDate || undefined,
@@ -1145,7 +1145,7 @@ export function AddEmployee() {
                         >
                           <option value="">{loadingStates.roles ? "Loading Roles..." : "Select Role"}</option>
                           {rolesList.map((role) => (
-                            <option key={role.id} value={role.id}>{role.role_name}</option>
+                            <option key={role.id} value={role.id}>{role.name}</option>
                           ))}
                         </select>
                         {errorStates.roles && <p className="text-xs text-red-500 mt-1">{errorStates.roles}</p>}
