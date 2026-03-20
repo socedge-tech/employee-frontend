@@ -539,15 +539,8 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                         variant="ghost"
                         size="sm"
                         className="h-10 w-10 p-0 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
-                        title="View Location"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-10 w-10 p-0 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
                         title="Edit Location"
+                        onClick={() => document.getElementById(`location-name-${loc.id}`)?.focus()}
                       >
                         <Pencil className="w-4 h-4" />
                       </Button>
@@ -570,6 +563,7 @@ export const CompanyStructureForm: React.FC<CompanyStructureFormProps> = ({
                         Location Name
                       </label>
                       <input
+                        id={`location-name-${loc.id}`}
                         type="text"
                         value={loc.locationName}
                         onChange={(e) =>

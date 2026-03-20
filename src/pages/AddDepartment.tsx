@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { capitalizeFirstLetter } from "../utils/stringUtils";
-import { ArrowLeft, Save, Plus, Trash2, Users, Search, X, Shield, ChevronDown, ChevronUp, Loader2, Pencil } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Users, Search, X, Shield, ChevronDown, ChevronUp, Loader2, Pencil, Eye } from "lucide-react";
 import { Card, CardHeader, CardContent, CardTitle } from "../components/ui/card.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { UserRole } from "../types/rbac.ts";
@@ -14,7 +14,7 @@ import {
 import { getEmployees } from "../api/employees.ts";
 import { getDepartment, getDepartments, createDepartment, updateDepartment } from "../api/departments.ts";
 import { getOrganizations } from "../api/organizations.ts";
-import { createTeam, updateTeam, deleteTeam } from "../api/teams.ts";
+import { createTeam, updateTeam, deleteTeam, getTeam } from "../api/teams.ts";
 import type { Branch } from "../api/organizations.ts";
 import { toast } from "sonner";
 import { Permission } from "../types/rbac";
@@ -39,6 +39,7 @@ interface UIEmployee {
 
 export function AddDepartment() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams();
   const isEditMode = !!id;
 
@@ -58,6 +59,7 @@ export function AddDepartment() {
   const [showTeamModal, setShowTeamModal] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [isTeamEdit, setIsTeamEdit] = useState(false);
+  const [isTeamView, setIsTeamView] = useState(false);
   const [isSavingTeam, setIsSavingTeam] = useState(false);
 
   // Team modal state
@@ -76,14 +78,21 @@ export function AddDepartment() {
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
 
   const [employees, setEmployees] = useState<UIEmployee[]>([]);
-  const [departmentsList, setDepartmentsList] = useState<any[]>([]);
+  const [departmentsList, setDepartmentsList] = useState<Array<{id: number, department_name: string}>>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeptView, setIsDeptView] = useState(false);
 
-  const fetchDepartmentData = async () => {
+  const fetchById = async () => {
     try {
-      setIsLoading(true);
-      // Fetch employees and map to UIEmployee
-      const empData = await getEmployees();
+      if (isLoading === false) setIsLoading(true);
+      
+      const [empData, depData, orgResponse] = await Promise.all([
+        getEmployees(),
+        getDepartments(),
+        getOrganizations()
+      ]);
+
       const mappedEmployees: UIEmployee[] = empData.map((emp: any) => ({
         id: emp.id.toString(),
         name: emp.details ? `${emp.details.first_name || ""} ${emp.details.last_name || ""}` : (emp.username || "Anonymous"),
@@ -92,15 +101,9 @@ export function AddDepartment() {
         avatar: emp.details ? `${emp.details.first_name?.[0] || ""}${emp.details.last_name?.[0] || ""}`.toUpperCase() : "U",
       }));
       setEmployees(mappedEmployees);
-
-      // Fetch departments for parent dropdown
-      const depData = await getDepartments();
       setDepartmentsList(depData);
 
-      // Fetch organizations to get branches
-      const orgResponse = await getOrganizations();
       const mainOrg = Array.isArray(orgResponse) ? orgResponse[0] : orgResponse;
-
       if (mainOrg) {
         setOrganizationName(mainOrg.entity_name || "");
         setBranches(mainOrg.branches || []);
@@ -119,26 +122,24 @@ export function AddDepartment() {
           if (departmentData.manager_id) {
             const mId = departmentData.manager_id.toString();
             const managerData = mappedEmployees.find(emp => emp.id === mId);
-            if (managerData) {
-              setManager(managerData);
-            }
+            if (managerData) setManager(managerData);
           }
 
           if (departmentData.teams) {
             const mappedTeams = departmentData.teams.map((t: any) => ({
-              id: t.id.toString(),
-              name: t.team_name,
-              description: t.description,
+              id: t.id?.toString() || `temp-${Math.random()}`,
+              name: t.team_name || "",
+              description: t.description || "",
               lead: t.team_lead?.full_name || t.team_lead?.username || t.team_lead_id?.toString() || "",
               leadId: t.team_lead_id?.toString() || "",
-              members: t.members?.map((m: any) => m.user_id.toString()) || []
+              members: Array.isArray(t.members) 
+                ? t.members.map((m: any) => (m?.id || m?.user_id)?.toString()).filter((id: any) => id != null)
+                : []
             }));
             setTeams(mappedTeams);
           }
 
-          if (departmentData.permissions) {
-            setDepartmentPermissions(departmentData.permissions);
-          }
+          if (departmentData.permissions) setDepartmentPermissions(departmentData.permissions);
         }
       }
     } catch (error) {
@@ -149,10 +150,9 @@ export function AddDepartment() {
     }
   };
 
-  // Load department data in edit mode
   useEffect(() => {
-    fetchDepartmentData();
-  }, [isEditMode, id]);
+    fetchById();
+  }, [id, isEditMode]);
 
   const filteredManagers = employees.filter((emp: UIEmployee) =>
     emp.name.toLowerCase().includes(managerSearchQuery.toLowerCase()) ||
@@ -164,29 +164,29 @@ export function AddDepartment() {
     !teamMembers.some((m: UIEmployee) => m.id === emp.id)
   );
 
-  const handleSave = async () => {
+  const handleDeptUpdate = async () => {
+    if (isDeptView) {
+      toast.error("Cannot save while in view mode.");
+      return;
+    }
+
     if (!departmentName || !departmentCode) {
       toast.error("Missing required fields");
       return;
     }
 
-    const payload: any = {
-      department_name: capitalizeFirstLetter(departmentName),
-      department_code: departmentCode,
-      description: capitalizeFirstLetter(description),
-      branch_id: selectedBranchId ? parseInt(selectedBranchId, 10) : undefined,
-      manager_id: manager?.id ? parseInt(manager.id, 10) : undefined,
+    const payload = {
+      department_name: departmentName.trim(),
+      department_code: departmentCode.trim(),
+      description: description.trim(),
+      branch_id: selectedBranchId ? parseInt(selectedBranchId, 10) : null,
+      manager_id: manager?.id ? parseInt(manager.id, 10) : null,
       parent_department_id: parentDepartment !== "None" ? parseInt(parentDepartment as string, 10) : null,
       annual_budget: budget ? parseFloat(budget) : 0,
-      teams: teams.map(t => ({
-        team_name: capitalizeFirstLetter(t.name),
-        description: capitalizeFirstLetter(t.description),
-        team_lead_id: t.leadId ? parseInt(t.leadId, 10) : null,
-        team_members: t.members.map(mId => parseInt(mId, 10))
-      }))
     };
 
     try {
+      setIsSaving(true);
       if (isEditMode && id) {
         await updateDepartment(parseInt(id, 10), payload);
         toast.success("Department updated successfully");
@@ -194,10 +194,12 @@ export function AddDepartment() {
         await createDepartment(payload);
         toast.success("Department created successfully");
       }
-      navigate("/company-structure");
+      navigate("/company-structure", { replace: true });
     } catch (error) {
       console.error("Failed to save department", error);
-      toast.error("Failed to save department");
+      toast.error(error instanceof Error ? error.message : "Failed to save department");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -208,10 +210,11 @@ export function AddDepartment() {
     setTeamMembers([]);
     setSelectedTeam(null);
     setIsTeamEdit(false);
+    setIsTeamView(false);
     setShowTeamModal(true);
   };
 
-  const handleSaveTeam = async (e: React.FormEvent) => {
+  const handleTeamUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!teamName) return;
 
@@ -227,19 +230,15 @@ export function AddDepartment() {
       setIsSavingTeam(true);
       if (isEditMode && id) {
         if (isTeamEdit && selectedTeam && !selectedTeam.id.startsWith("team-")) {
-          // Update existing team via API
           await updateTeam(parseInt(selectedTeam.id, 10), teamPayload);
           toast.success("Team updated successfully");
         } else {
-          // Add new team to existing department via API
           await createTeam(teamPayload);
           toast.success("Team added successfully");
         }
-
-        // Refresh the whole department/teams list from server
-        await fetchDepartmentData();
+        await fetchById();
+        setShowTeamModal(false);
       } else {
-        // Just update local state if adding a new department
         const newTeam: Team = {
           id: selectedTeam?.id || `team-${Date.now()}`,
           name: teamName,
@@ -248,20 +247,83 @@ export function AddDepartment() {
           description: teamDescription,
           members: teamMembers.map(m => m.id),
         };
-
         if (isTeamEdit) {
           setTeams(teams.map(t => t.id === selectedTeam?.id ? newTeam : t));
         } else {
           setTeams([...teams, newTeam]);
         }
+        setShowTeamModal(false);
       }
-
-      setShowTeamModal(false);
-      setIsTeamEdit(false);
-      setSelectedTeam(null);
     } catch (error) {
       console.error("Failed to save team", error);
       toast.error("Failed to save team");
+    } finally {
+      setIsSavingTeam(false);
+    }
+  };
+
+  const handleTeamView = async (team: Team) => {
+    if (!team || !team.id) return;
+
+    // Reset modal states before loading to prevent flash of old data
+    setTeamName("");
+    setTeamDescription("");
+    setTeamLead(null);
+    setTeamMembers([]);
+    setIsTeamView(true);
+    setIsTeamEdit(false);
+
+    // If it's a temp team (not saved in backend), show local data immediately
+    if (String(team.id).startsWith("team-")) {
+      setTeamName(team.name);
+      setTeamDescription(team.description);
+      const lead = employees.find(e => e.id === String(team.leadId));
+      setTeamLead(lead || null);
+      setTeamMembers(employees.filter(e => team.members.includes(e.id)));
+      setSelectedTeam(team);
+      setShowTeamModal(true);
+      return;
+    }
+
+    try {
+      setIsSavingTeam(true); // Using this as the loading indicator
+      
+      const response = await getTeam(parseInt(String(team.id), 10));
+      // Handle the case where the API might return the wrapped or unwrapped object
+      const teamDetails = response; 
+      
+      if (teamDetails) {
+        // 1. Bind basic fields
+        setTeamName(teamDetails.team_name || "");
+        setTeamDescription(teamDetails.description || "");
+        
+        // 2. Bind Team Lead
+        const leadId = teamDetails.team_lead_id?.toString();
+        if (leadId) {
+          const matchedLead = employees.find(e => e.id === leadId);
+          setTeamLead(matchedLead || null);
+        }
+
+        // 3. Bind Members List
+        if (teamDetails.members && Array.isArray(teamDetails.members)) {
+          const membersList = teamDetails.members
+            .map((member: { id?: number | string; user_id?: number | string }) => {
+              const mId = (member.id || member.user_id)?.toString();
+              return employees.find(emp => emp.id === mId);
+            })
+            .filter((emp): emp is UIEmployee => emp !== undefined);
+          setTeamMembers(membersList);
+        }
+
+        // 4. Finalize state and open modal
+        setSelectedTeam(team);
+        setShowTeamModal(true);
+      } else {
+        toast.error("Team data not found");
+      }
+    } catch (error) {
+      console.error("[TeamView] Error fetching data:", error);
+      toast.error("Failed to load team details. Please try again.");
     } finally {
       setIsSavingTeam(false);
     }
@@ -272,7 +334,7 @@ export function AddDepartment() {
       if (isEditMode && id && !teamId.startsWith("team-")) {
         await deleteTeam(parseInt(teamId, 10));
         toast.success("Team deleted successfully");
-        fetchDepartmentData();
+        fetchById();
       } else {
         setTeams(teams.filter(t => t.id !== teamId));
       }
@@ -290,8 +352,40 @@ export function AddDepartment() {
     setTeamMembers(employees.filter(e => team.members.includes(e.id)));
     setSelectedTeam(team);
     setIsTeamEdit(true);
+    setIsTeamView(false);
     setShowTeamModal(true);
   };
+
+  useEffect(() => {
+    if (!isEditMode || isLoading) return;
+    const params = new URLSearchParams(location.search);
+    const teamId = params.get("teamId");
+    const isViewMode = params.get("view") === "true";
+
+    setIsDeptView(isViewMode);
+
+    if (!teamId || teams.length === 0) return;
+
+    const existingTeam = teams.find(t => {
+      const tId = typeof t.id === "string" ? t.id : String(t.id);
+      return tId === String(teamId);
+    });
+
+    if (!existingTeam) {
+      console.warn(`Team with id ${teamId} not found in teams list`);
+      return;
+    }
+
+    setTeamName(existingTeam.name);
+    setTeamDescription(existingTeam.description);
+    const lead = employees.find(e => e.id === existingTeam.leadId);
+    setTeamLead(lead || null);
+    setTeamMembers(employees.filter(e => existingTeam.members.includes(e.id)));
+    setSelectedTeam(existingTeam);
+    setIsTeamEdit(!isViewMode);
+    setIsTeamView(isViewMode);
+    setShowTeamModal(true);
+  }, [location.search, teams, employees, isEditMode, isLoading]);
 
   const removeMember = (memberId: string) => {
     setTeamMembers(teamMembers.filter(m => m.id !== memberId));
@@ -321,21 +415,32 @@ export function AddDepartment() {
                 </button>
                 <div>
                   <h1 className="text-2xl font-semibold text-gray-900">
-                    {isEditMode ? "Edit Department" : "Add New Department"}
+                    {isDeptView ? "View Department" : isEditMode ? "Edit Department" : "Add New Department"}
                   </h1>
                   <p className="text-sm text-gray-500 mt-1">
-                    {isEditMode ? "Update department information" : "Create a new department in your organization"}
+                    {isDeptView
+                      ? "Review department information"
+                      : isEditMode
+                        ? "Update department information"
+                        : "Create a new department in your organization"
+                    }
                   </p>
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => navigate("/company-structure")}>
-                  Cancel
+                <Button variant="outline" onClick={() => navigate("/company-structure")} disabled={isSaving}>
+                  {isDeptView ? "Close" : "Cancel"}
                 </Button>
-                <Button className="gap-2" onClick={handleSave}>
-                  <Save className="w-4 h-4" />
-                  Save Department
-                </Button>
+                {!isDeptView && (
+                  <Button className="gap-2" onClick={handleDeptUpdate} disabled={isSaving}>
+                    {isSaving ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    {isSaving ? "Saving..." : "Save Department"}
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -563,33 +668,45 @@ export function AddDepartment() {
                       <Button size="sm" onClick={handleAddTeam}>Add First Team</Button>
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      {teams.map((team) => (
-                        <div key={team.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1">
-                              <h4 className="font-medium text-gray-900">{team.name}</h4>
-                              <p className="text-sm text-gray-500 mt-1">{team.description}</p>
-                            </div>
-                            <div className="flex gap-1">
-                              <button
-                                onClick={() => handleEditTeam(team)}
-                                className="p-1.5 hover:bg-gray-200 rounded"
-                                title="Edit Team"
-                              >
-                                <Pencil className="w-4 h-4 text-gray-600" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteTeam(team.id)}
-                                className="p-1.5 hover:bg-red-50 rounded"
-                              >
-                                <Trash2 className="w-4 h-4 text-red-600" />
-                              </button>
-                            </div>
+                  <div className="space-y-3">
+                    {teams.map((team) => (
+                      <div 
+                        key={team.id} 
+                        className="p-4 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:border-indigo-300 transition-colors"
+                        onClick={() => handleTeamView(team)}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-900">{team.name}</h4>
+                            <p className="text-sm text-gray-500 mt-1">{team.description}</p>
                           </div>
-                          <div className="flex items-center justify-between text-sm">
+                          <div className="flex gap-1">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleTeamView(team); }}
+                              className="p-1.5 hover:bg-indigo-50 rounded transition-colors"
+                              title="View Team"
+                            >
+                              <Eye className="w-4 h-4 text-indigo-600" />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleEditTeam(team); }}
+                              className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+                              title="Edit Team"
+                            >
+                              <Pencil className="w-4 h-4 text-gray-600" />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteTeam(team.id); }}
+                              className="p-1.5 hover:bg-red-50 rounded transition-colors"
+                              title="Delete Team"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600" />
+                            </button>
+                          </div>
+                        </div>
+                          <div className="flex items-center justify-between text-sm mt-3 pt-3 border-t border-gray-100">
                             <span className="text-gray-600">Team Lead: <span className="font-medium text-gray-900">{team.lead || "Not assigned"}</span></span>
-                            <span className="text-gray-600">{team.members.length} members</span>
+                            <span className="text-gray-600">{(team.members?.length || 0)} members</span>
                           </div>
                         </div>
                       ))}
@@ -926,11 +1043,11 @@ export function AddDepartment() {
         {showTeamModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <Card className="max-w-2xl bg-white w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-              <form onSubmit={handleSaveTeam} className="flex flex-col h-full overflow-hidden">
+              <form onSubmit={handleTeamUpdate} className="flex flex-col h-full overflow-hidden">
                 <CardHeader className="flex-shrink-0 border-b border-gray-100">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-xl font-bold text-gray-900 border-none p-0">
-                      {isTeamEdit ? "Update Team" : "Add Team"}
+                       {isTeamView ? "Team Details" : isTeamEdit ? "Update Team" : "Add Team"}
                     </CardTitle>
                     <button
                       type="button"
@@ -953,8 +1070,9 @@ export function AddDepartment() {
                         value={teamName}
                         onChange={(e) => setTeamName(capitalizeFirstLetter(e.target.value))}
                         placeholder="e.g., Frontend Team"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
                         required
+                        disabled={isTeamView}
                       />
                     </div>
 
@@ -967,7 +1085,8 @@ export function AddDepartment() {
                         onChange={(e) => setTeamDescription(capitalizeFirstLetter(e.target.value))}
                         rows={3}
                         placeholder="Brief description of the team's responsibilities..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                        disabled={isTeamView}
                       />
                     </div>
 
@@ -986,28 +1105,32 @@ export function AddDepartment() {
                               <p className="text-xs text-gray-500">{teamLead.title}</p>
                             </div>
                           </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setTeamLead(null)}
-                          >
-                            Change
-                          </Button>
+                          {!isTeamView && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setTeamLead(null)}
+                            >
+                              Change
+                            </Button>
+                          )}
                         </div>
                       ) : (
                         <div className="relative">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="w-full gap-2 text-gray-600 border-dashed"
-                            onClick={() => setShowTeamLeadSearch(!showTeamLeadSearch)}
-                          >
-                            <Search className="w-4 h-4" />
-                            Select Team Lead
-                          </Button>
+                          {!isTeamView && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="w-full gap-2 text-gray-600 border-dashed"
+                              onClick={() => setShowTeamLeadSearch(!showTeamLeadSearch)}
+                            >
+                              <Search className="w-4 h-4" />
+                              Select Team Lead
+                            </Button>
+                          )}
 
-                          {showTeamLeadSearch && (
+                          {showTeamLeadSearch && !isTeamView && (
                             <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-20 max-h-60 overflow-y-auto ring-1 ring-black ring-opacity-5">
                               <div className="p-2">
                                 {employees.map((emp) => (
@@ -1054,70 +1177,74 @@ export function AddDepartment() {
                                   <p className="text-xs text-gray-500">{member.title}</p>
                                 </div>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => removeMember(member.id)}
-                                className="p-1.5 hover:bg-red-50 rounded-md transition-colors"
-                              >
-                                <X className="w-4 h-4 text-red-500" />
-                              </button>
+                              {!isTeamView && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeMember(member.id)}
+                                  className="p-1.5 hover:bg-red-50 rounded-md transition-colors"
+                                >
+                                  <X className="w-4 h-4 text-red-500" />
+                                </button>
+                              )}
                             </div>
                           ))}
                         </div>
                       )}
 
-                      <div className="relative">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-full gap-2 text-gray-600 border-dashed"
-                          onClick={() => setShowMemberSearch(!showMemberSearch)}
-                        >
-                          <Plus className="w-4 h-4" />
-                          Add Members
-                        </Button>
+                        {!isTeamView && (
+                        <div className="relative">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full gap-2 text-gray-600 border-dashed"
+                            onClick={() => setShowMemberSearch(!showMemberSearch)}
+                          >
+                            <Plus className="w-4 h-4" />
+                            Add Members
+                          </Button>
 
-                        {showMemberSearch && (
-                          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-20 max-h-60 overflow-y-auto ring-1 ring-black ring-opacity-5">
-                            <div className="p-3 border-b border-gray-200 sticky top-0 bg-white">
-                              <div className="relative">
-                                <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                                <input
-                                  type="text"
-                                  value={memberSearchQuery}
-                                  onChange={(e) => setMemberSearchQuery(e.target.value)}
-                                  placeholder="Search employees..."
-                                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                />
+                          {showMemberSearch && (
+                            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-20 max-h-60 overflow-y-auto ring-1 ring-black ring-opacity-5">
+                              <div className="p-3 border-b border-gray-200 sticky top-0 bg-white">
+                                <div className="relative">
+                                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                                  <input
+                                    type="text"
+                                    value={memberSearchQuery}
+                                    onChange={(e) => setMemberSearchQuery(e.target.value)}
+                                    placeholder="Search employees..."
+                                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                  />
+                                </div>
+                              </div>
+                              <div className="p-2">
+                                {filteredMembers.map((emp) => (
+                                  <button
+                                    key={emp.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setTeamMembers([...teamMembers, emp]);
+                                      setMemberSearchQuery("");
+                                    }}
+                                    className="w-full flex items-center gap-3 p-2 hover:bg-indigo-50 rounded-lg transition-colors"
+                                  >
+                                    <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium text-xs">
+                                      {emp.avatar}
+                                    </div>
+                                    <div className="flex-1 text-left">
+                                      <p className="font-medium text-sm text-gray-900">{emp.name}</p>
+                                      <p className="text-xs text-gray-500">{emp.title}</p>
+                                    </div>
+                                  </button>
+                                ))}
+                                {filteredMembers.length === 0 && (
+                                  <p className="text-center text-gray-500 py-4 text-sm font-medium">No more employees available</p>
+                                )}
                               </div>
                             </div>
-                            <div className="p-2">
-                              {filteredMembers.map((emp) => (
-                                <button
-                                  key={emp.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setTeamMembers([...teamMembers, emp]);
-                                    setMemberSearchQuery("");
-                                  }}
-                                  className="w-full flex items-center gap-3 p-2 hover:bg-indigo-50 rounded-lg transition-colors"
-                                >
-                                  <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium text-xs">
-                                    {emp.avatar}
-                                  </div>
-                                  <div className="flex-1 text-left">
-                                    <p className="font-medium text-sm text-gray-900">{emp.name}</p>
-                                    <p className="text-xs text-gray-500">{emp.title}</p>
-                                  </div>
-                                </button>
-                              ))}
-                              {filteredMembers.length === 0 && (
-                                <p className="text-center text-gray-500 py-4 text-sm font-medium">No more employees available</p>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -1129,19 +1256,21 @@ export function AddDepartment() {
                     className="flex-1"
                     onClick={() => setShowTeamModal(false)}
                   >
-                    Cancel
+                    {isTeamView ? "Close" : "Cancel"}
                   </Button>
-                  <Button
-                    type="submit"
-                    className="flex-1 bg-indigo-600 hover:bg-indigo-700"
-                    disabled={!teamName || isSavingTeam}
-                  >
-                    {isSavingTeam ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      isTeamEdit ? "Update Team" : "Add Team"
-                    )}
-                  </Button>
+                  {!isTeamView && (
+                    <Button
+                      type="submit"
+                      className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+                      disabled={!teamName || isSavingTeam}
+                    >
+                      {isSavingTeam ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        isTeamEdit ? "Update Team" : "Add Team"
+                      )}
+                    </Button>
+                  )}
                 </div>
               </form>
             </Card>

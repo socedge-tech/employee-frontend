@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ChevronDown, ChevronRight, Plus, Users, Building2,
@@ -10,6 +11,8 @@ import { RoleGate } from "../components/Auth/RoleGate";
 import { Permission } from "../types/rbac";
 import { usePermissions } from "../hooks/usePermissions";
 import { useCompanyStructure, type DepartmentNode, type TeamNode } from "../hooks/useCompanyStructure";
+import { getDepartment } from "../api/departments";
+import { toast } from "sonner";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Small, focused sub-components extracted from the monolith
@@ -65,12 +68,15 @@ interface TeamRowProps {
   canEdit: boolean;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  onView?: () => void;
+  onEdit?: () => void;
 }
 
-function TeamRow({ team, isHovered, canEdit, onMouseEnter, onMouseLeave }: TeamRowProps) {
+function TeamRow({ team, isHovered, canEdit, onMouseEnter, onMouseLeave, onView, onEdit }: TeamRowProps) {
   return (
     <div
-      className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors relative"
+      className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors relative"
+      onClick={onView}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
@@ -97,9 +103,15 @@ function TeamRow({ team, isHovered, canEdit, onMouseEnter, onMouseLeave }: TeamR
             </div>
           )}
       </div>
-      <span className="text-sm text-gray-600 mr-2">{team.members}</span>
+      <span className="text-sm text-gray-600 mr-2">
+        {Array.isArray(team.members) ? team.members.length : team.members}
+      </span>
       {isHovered && (
-        <NodeActions canEdit={canEdit} />
+        <NodeActions
+          canEdit={canEdit}
+          onView={onView}
+          onEdit={onEdit}
+        />
       )}
     </div>
   );
@@ -113,15 +125,18 @@ interface DepartmentRowProps {
   onSelect: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  onView?: () => void;
   onEdit: () => void;
   teamHoveredId: string | number | null;
   onTeamHover: (id: string | number | null) => void;
+  onTeamView: (team: TeamNode) => void;
+  onTeamEdit: (team: TeamNode) => void;
 }
 
 function DepartmentRow({
   dept, isHovered, canEdit,
-  onToggle, onSelect, onMouseEnter, onMouseLeave, onEdit,
-  teamHoveredId, onTeamHover,
+  onToggle, onSelect, onMouseEnter, onMouseLeave, onView, onEdit,
+  teamHoveredId, onTeamHover, onTeamView, onTeamEdit,
 }: DepartmentRowProps) {
   return (
     <div className="space-y-2">
@@ -145,6 +160,7 @@ function DepartmentRow({
         <span className="ml-auto text-sm text-gray-600 mr-2 whitespace-nowrap">{dept.headcount} people</span>
         {isHovered && (
           <NodeActions
+            onView={onView}
             canEdit={canEdit}
             onEdit={onEdit}
           />
@@ -157,10 +173,12 @@ function DepartmentRow({
             <TeamRow
               key={team.id}
               team={team}
-              isHovered={teamHoveredId === team.id}
+              isHovered={teamHoveredId === String(team.id)}
               canEdit={canEdit}
-              onMouseEnter={() => onTeamHover(team.id)}
+              onMouseEnter={() => onTeamHover(String(team.id))}
               onMouseLeave={() => onTeamHover(null)}
+              onView={() => onTeamView(team)}
+              onEdit={() => onTeamEdit(team)}
             />
           ))}
         </div>
@@ -175,7 +193,6 @@ function DepartmentRow({
 export function CompanyStructure() {
   const navigate = useNavigate();
   const { can } = usePermissions();
-  const canEditStructure = can(Permission.EDIT_COMPANY_STRUCTURE);
   const canManageDepts = can(Permission.MANAGE_DEPARTMENTS);
 
   const {
@@ -193,10 +210,108 @@ export function CompanyStructure() {
     setHoveredNode,
     toggleDepartment,
     toggleBranch,
+    setDepartments,
   } = useCompanyStructure();
 
-  // Team hover needs a simpler local key: we can reuse hoveredNode with type='team'
-  const teamHoveredId = hoveredNode?.type === "team" ? hoveredNode.id : null;
+  const [selectedTeam, setSelectedTeam] = useState<TeamNode | null>(null);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+
+  const handleTeamView = async (dept: DepartmentNode, team: TeamNode) => {
+    try {
+      setIsDetailLoading(true);
+      const data = await getDepartment(Number(dept.id));
+      
+      const mappedDept: DepartmentNode = {
+        id: data.id,
+        name: data.department_name,
+        manager: data.manager?.username ?? (data.manager_id ? `Manager #${data.manager_id}` : "Unassigned"),
+        headcount: data.headcount ?? (data.teams?.reduce((acc, t) => acc + (t.members?.length || 0), 0) || 0),
+        teams: (data.teams || []).map((t: any) => ({
+          id: t.id,
+          name: t.team_name,
+          lead: t.team_lead?.username ?? "Unassigned",
+          members: Array.isArray(t.members) ? t.members : [],
+          avatars: t.members?.map((m: any) => m.username?.[0]?.toUpperCase()).slice(0, 3) || [],
+        })),
+        branch_id: data.branch_id,
+        expanded: dept.expanded
+      };
+      
+      setDepartments(prev => 
+        prev.map(d => String(d.id) === String(mappedDept.id) ? { ...mappedDept, expanded: d.expanded } : d)
+      );
+      
+      setSelectedDept(mappedDept);
+
+      const targetTeam = mappedDept.teams.find(t => String(t.id) === String(team.id));
+      if (targetTeam) {
+        setSelectedTeam(targetTeam);
+      } else {
+        setSelectedTeam(null);
+      }
+    } catch (error) {
+      console.error("Failed to fetch team details:", error);
+      toast.error("Failed to load team details");
+    } finally {
+      setIsDetailLoading(false);
+    }
+  };
+
+  const handleViewDepartment = async (dept: DepartmentNode) => {
+    try {
+      setIsDetailLoading(true);
+      const data = await getDepartment(Number(dept.id));
+      
+      const mappedDept: DepartmentNode = {
+        id: data.id,
+        name: data.department_name,
+        manager: data.manager?.username ?? (data.manager_id ? `Manager #${data.manager_id}` : "Unassigned"),
+        headcount: data.headcount ?? (data.teams?.reduce((acc: number, t: any) => acc + (t.members?.length || 0), 0) || 0),
+        teams: (data.teams || []).map((t: any) => ({
+          id: t.id,
+          name: t.team_name,
+          description: t.description || "",
+          lead: t.team_lead?.username ?? "Unassigned",
+          members: Array.isArray(t.members) ? t.members : [],
+          avatars: t.members?.map((m: any) => m.username?.[0]?.toUpperCase()).slice(0, 3) || [],
+        })),
+        branch_id: data.branch_id,
+        expanded: dept.expanded
+      };
+
+      setDepartments(prev => 
+        prev.map(d => String(d.id) === String(mappedDept.id) ? { ...mappedDept, expanded: d.expanded } : d)
+      );
+
+      setSelectedDept(mappedDept);
+      setSelectedTeam(null);
+    } catch (error) {
+      console.error("Failed to fetch department details:", error);
+      toast.error("Failed to load department details");
+    } finally {
+      setIsDetailLoading(false);
+    }
+  };
+
+  const handleTeamEdit = (dept: DepartmentNode, team: TeamNode) => {
+    if (!canManageDepts) {
+      toast.error("You do not have permission to edit teams");
+      return;
+    }
+    navigate(`/company-structure/edit-department/${dept.id}?teamId=${team.id}`);
+  };
+
+  const handleDeptEdit = (dept: DepartmentNode) => {
+    if (!canManageDepts) {
+      toast.error("You do not have permission to edit departments");
+      return;
+    }
+    navigate(`/company-structure/edit-department/${dept.id}`);
+  };
+
+
+  // Team hover needs a simpler local key: use a stable string match to avoid number/string mismatch
+  const teamHoveredId = hoveredNode?.type === "team" ? String(hoveredNode.id) : null;
 
   if (isLoading) {
     return (
@@ -326,7 +441,6 @@ export function CompanyStructure() {
                       {(companyDetails?.locations ?? []).map(branch => {
                         const branchDepts = departments.filter(d => d.branch_id === branch.id);
                         const isExpanded = expandedBranches[branch.id];
-                        const isBranchHovered = hoveredNode?.type === "branch" && hoveredNode.id === branch.id;
 
                         return (
                           <div key={branch.id} className="space-y-2">
@@ -353,32 +467,28 @@ export function CompanyStructure() {
                               <span className="ml-auto text-xs font-bold text-gray-400 mr-2 whitespace-nowrap">
                                 {branchDepts.length} departments
                               </span>
-                              {isBranchHovered && (
-                                <NodeActions
-                                  onView={() => { }}
-                                  canEdit={canEditStructure}
-                                  onEdit={() => navigate("/company-structure/settings")}
-                                />
-                              )}
                             </div>
 
                             {/* Departments under branch */}
                             {isExpanded && (
                               <div className="ml-6 space-y-3">
                                 {branchDepts.length > 0 ? branchDepts.map(dept => (
-                                  <DepartmentRow
-                                    key={dept.id}
-                                    dept={dept}
-                                    isHovered={hoveredNode?.type === "department" && hoveredNode.id === dept.id}
-                                    canEdit={canManageDepts}
-                                    onToggle={() => toggleDepartment(dept.id)}
-                                    onSelect={() => setSelectedDept(dept)}
-                                    onMouseEnter={() => setHoveredNode({ type: "department", id: dept.id })}
-                                    onMouseLeave={() => setHoveredNode(null)}
-                                    onEdit={() => navigate(`/company-structure/edit-department/${dept.id}`)}
-                                    teamHoveredId={teamHoveredId}
-                                    onTeamHover={id => setHoveredNode(id ? { type: "team", id } : null)}
-                                  />
+                                    <DepartmentRow
+                                      key={dept.id}
+                                      dept={dept}
+                                      isHovered={hoveredNode?.type === "department" && String(hoveredNode.id) === String(dept.id)}
+                                      canEdit={canManageDepts}
+                                      onToggle={() => toggleDepartment(dept.id)}
+                                      onSelect={() => handleViewDepartment(dept)}
+                                      onView={() => navigate(`/company-structure/edit-department/${dept.id}?view=true`)}
+                                      onMouseEnter={() => setHoveredNode({ type: "department", id: String(dept.id) })}
+                                      onMouseLeave={() => setHoveredNode(null)}
+                                      onEdit={() => handleDeptEdit(dept)}
+                                      teamHoveredId={teamHoveredId}
+                                      onTeamHover={id => setHoveredNode(id ? { type: "team", id: String(id) } : null)}
+                                      onTeamView={team => navigate(`/company-structure/edit-department/${dept.id}?teamId=${team.id}&view=true`)}
+                                      onTeamEdit={team => handleTeamEdit(dept, team)}
+                                    />
                                 )) : (
                                   <p className="text-xs text-gray-400 italic py-2">
                                     No departments assigned to this branch
@@ -420,15 +530,18 @@ export function CompanyStructure() {
                                 <DepartmentRow
                                   key={dept.id}
                                   dept={dept}
-                                  isHovered={hoveredNode?.type === "department" && hoveredNode.id === dept.id}
+                                  isHovered={hoveredNode?.type === "department" && String(hoveredNode.id) === String(dept.id)}
                                   canEdit={canManageDepts}
                                   onToggle={() => toggleDepartment(dept.id)}
-                                  onSelect={() => setSelectedDept(dept)}
-                                  onMouseEnter={() => setHoveredNode({ type: "department", id: dept.id })}
+                                  onSelect={() => handleViewDepartment(dept)}
+                                  onView={() => navigate(`/company-structure/edit-department/${dept.id}?view=true`)}
+                                  onMouseEnter={() => setHoveredNode({ type: "department", id: String(dept.id) })}
                                   onMouseLeave={() => setHoveredNode(null)}
-                                  onEdit={() => navigate(`/company-structure/edit-department/${dept.id}`)}
+                                  onEdit={() => handleDeptEdit(dept)}
                                   teamHoveredId={teamHoveredId}
-                                  onTeamHover={id => setHoveredNode(id ? { type: "team", id } : null)}
+                                  onTeamHover={id => setHoveredNode(id ? { type: "team", id: String(id) } : null)}
+                                  onTeamView={team => navigate(`/company-structure/edit-department/${dept.id}?teamId=${team.id}&view=true`)}
+                                  onTeamEdit={team => handleTeamEdit(dept, team)}
                                 />
                               ))}
                             </div>
@@ -512,7 +625,12 @@ export function CompanyStructure() {
                   </Button>
                 </CardHeader>
                 <CardContent className="px-6 pb-6 pt-0">
-                  {selectedDept ? (
+                  {isDetailLoading ? (
+                    <div className="flex flex-col items-center justify-center py-12">
+                      <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mb-2" />
+                      <p className="text-gray-400 text-sm">Loading details...</p>
+                    </div>
+                  ) : selectedDept ? (
                     <div className="space-y-6">
                       <div>
                         <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
@@ -555,11 +673,51 @@ export function CompanyStructure() {
                           {selectedDept.teams.map(team => (
                             <div
                               key={team.id}
-                              className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-gray-200 transition-colors"
+                              className="flex flex-col p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-indigo-200 transition-colors gap-3"
                             >
-                              <span className="text-sm font-semibold text-gray-700">{team.name}</span>
-                              <div className="bg-white px-2.5 py-1 rounded-lg border border-gray-200 shadow-sm">
-                                <span className="text-xs font-bold text-[#4F46E5]">{team.members}</span>
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-gray-900">{team.name}</span>
+                                <div className="flex gap-1 items-center">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleTeamView(selectedDept, team); }}
+                                    className="p-1.5 hover:bg-indigo-50 rounded text-indigo-600 transition-colors"
+                                    title="View Team Details"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                  <div className="bg-white px-2.5 py-1 rounded-lg border border-gray-200 shadow-sm">
+                                    <span className="text-xs font-bold text-[#4F46E5]">
+                                      {Array.isArray(team.members) ? team.members.length : team.members}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {team.description && (
+                                <p className="text-xs text-gray-500 italic">{team.description}</p>
+                              )}
+                              
+                              <div className="flex flex-col gap-2">
+                                <div className="flex justify-between items-center text-[10px] text-gray-400 uppercase font-bold tracking-wider">
+                                  <span>Team Lead</span>
+                                  <span className="text-gray-900">{team.lead}</span>
+                                </div>
+                                
+                                {Array.isArray(team.members) && team.members.length > 0 && (
+                                  <div className="flex flex-col gap-1.5 mt-1">
+                                    <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Members</span>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {team.members.map((m: any) => (
+                                        <div 
+                                          key={m.id || m.user_id} 
+                                          className="px-2 py-0.5 bg-white border border-gray-100 rounded text-[11px] font-medium text-gray-600"
+                                        >
+                                          {m.username}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -567,23 +725,24 @@ export function CompanyStructure() {
                       </div>
 
                       <div className="pt-4 space-y-3">
-                        <RoleGate permissions={[Permission.MANAGE_DEPARTMENTS]}>
+                        {canManageDepts && (
                           <Button
                             className="w-full h-11 bg-white border-gray-200 text-gray-700 font-bold hover:bg-gray-50 shadow-sm"
                             variant="outline"
+                            onClick={() => navigate(`/company-structure/edit-department/${selectedDept.id}?addTeam=true`)}
                           >
                             Add Team
                           </Button>
-                        </RoleGate>
-                        <RoleGate permissions={[Permission.MANAGE_DEPARTMENTS]}>
+                        )}
+                        {canManageDepts && (
                           <Button
                             className="w-full h-11 bg-gray-50 border-gray-200 text-gray-600 font-bold hover:bg-gray-100 shadow-sm"
                             variant="outline"
-                            onClick={() => navigate(`/company-structure/edit-department/${selectedDept.id}`)}
+                            onClick={() => handleDeptEdit(selectedDept)}
                           >
                             Edit Department
                           </Button>
-                        </RoleGate>
+                        )}
                       </div>
                     </div>
                   ) : (
@@ -598,6 +757,72 @@ export function CompanyStructure() {
                   )}
                 </CardContent>
               </Card>
+
+              {selectedTeam && selectedDept && (
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>Team Details</CardTitle>
+                    {canManageDepts && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleTeamEdit(selectedDept, selectedTeam)}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </CardHeader>
+                  <CardContent className="px-6 pb-6 pt-0">
+                    <div className="space-y-6">
+                      <div>
+                        <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                          Team Name
+                        </label>
+                        <p className="font-semibold text-gray-900 mt-1">{selectedTeam.name}</p>
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                          Team Lead
+                        </label>
+                        <p className="font-semibold text-gray-900 mt-1">{selectedTeam.lead}</p>
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                          Members
+                        </label>
+                        {Array.isArray(selectedTeam.members) ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {selectedTeam.members.map((m: any) => (
+                              <div 
+                                key={m.id || m.user_id} 
+                                className="px-3 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 shadow-sm"
+                              >
+                                {m.username}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="font-semibold text-gray-900 mt-1">{selectedTeam.members}</p>
+                        )}
+                        {selectedTeam.avatars?.length > 0 && (
+                          <div className="mt-4 flex -space-x-2">
+                            {selectedTeam.avatars.map((avatar: string, idx: number) => (
+                              <div
+                                key={idx}
+                                className="w-8 h-8 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center text-xs text-white font-medium border-2 border-white"
+                              >
+                                {avatar}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Headcount Analytics */}
               <Card>
