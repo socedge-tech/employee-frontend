@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useState, useEffect } from "react";
 import { getOrganizations } from "../../api/organizations";
-import type { Organization } from "../../api/organizations";
+
 
 interface OrganizationDropdownProps {
   value: string;

@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
 import {
   Calendar, Clock, TrendingUp, Users, Award,
-  CheckCircle2, ArrowUpRight, ArrowRight, Briefcase,
-  Target, Heart, Zap, BookOpen, Trophy, Newspaper,
+  ArrowUpRight, ArrowRight, Briefcase,
+  Target, Heart, BookOpen, Newspaper,
   ExternalLink, LogIn, LogOut, Sparkles, ChevronRight,
-  Star, Bell, Filter, Settings, MoreVertical, Eye,
-  EyeOff, Coffee, MessageCircle, UserPlus, TrendingDown,
-  AlertCircle, CheckCircle, BarChart3, Lightbulb,
-  PartyPopper, Loader2, FileText
+  Star, Filter, MoreVertical, Eye,
+  EyeOff, Coffee, UserPlus, 
+  AlertCircle, Lightbulb,
+   Loader2, FileText
 } from "lucide-react";
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { AreaChart, Area,  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useAuth } from "../context/AuthContext";
 import { getEmployee } from "../api/employees";
 import { getMyAttendanceLogs, checkIn, checkOut } from "../api/attendance";

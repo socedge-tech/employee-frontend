@@ -23,7 +23,6 @@ export interface Branch {
 
 export interface Organization {
   id: number;
-  entity_name: string;
   entity_name?: string; // Corrected column name per user request
   company_code: string;
   company_type?: string;

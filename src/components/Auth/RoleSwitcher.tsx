@@ -11,7 +11,7 @@ const roleConfig = [
 ];
 
 export function RoleSwitcher() {
-  const { user, switchRole } = useAuth();
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -55,7 +55,7 @@ export function RoleSwitcher() {
               <button
                 key={role.value}
                 onClick={() => {
-                  switchRole(role.value as any);
+                 
                   setIsOpen(false);
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-2 text-sm text-left hover:bg-gray-50 transition-colors ${

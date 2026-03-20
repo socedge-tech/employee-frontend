@@ -12,10 +12,7 @@ import {
   ChevronRight,
   Briefcase,
   DollarSign,
-  Shield,
-  Target,
-  Mail,
-  Bell
+ 
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.tsx";
 import { canAccessNavItem } from "../../config/permissions.ts";
