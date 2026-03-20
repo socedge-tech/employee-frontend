@@ -183,6 +183,14 @@ export function AddDepartment() {
       manager_id: manager?.id ? parseInt(manager.id, 10) : null,
       parent_department_id: parentDepartment !== "None" ? parseInt(parentDepartment as string, 10) : null,
       annual_budget: budget ? parseFloat(budget) : 0,
+      teams: teams.map(t => ({
+        // Include ID only if it's an existing team (for updates)
+        ...(isEditMode && !t.id.startsWith("team-") ? { id: parseInt(t.id, 10) } : {}),
+        team_name: t.name,
+        description: t.description,
+        team_lead_id: t.leadId ? parseInt(t.leadId, 10) : null,
+        team_members: t.members.map(m => parseInt(m, 10))
+      }))
     };
 
     try {

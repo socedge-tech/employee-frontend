@@ -11,7 +11,8 @@ import { RoleGate } from "../components/Auth/RoleGate";
 import { Permission } from "../types/rbac";
 import { usePermissions } from "../hooks/usePermissions";
 import { useCompanyStructure, type DepartmentNode, type TeamNode } from "../hooks/useCompanyStructure";
-import { getDepartment } from "../api/departments";
+import { getDepartment, deleteDepartment } from "../api/departments";
+import { deleteTeam } from "../api/teams";
 import { toast } from "sonner";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -70,9 +71,10 @@ interface TeamRowProps {
   onMouseLeave: () => void;
   onView?: () => void;
   onEdit?: () => void;
+  onDelete?: () => void;
 }
 
-function TeamRow({ team, isHovered, canEdit, onMouseEnter, onMouseLeave, onView, onEdit }: TeamRowProps) {
+function TeamRow({ team, isHovered, canEdit, onMouseEnter, onMouseLeave, onView, onEdit, onDelete }: TeamRowProps) {
   return (
     <div
       className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors relative"
@@ -111,6 +113,7 @@ function TeamRow({ team, isHovered, canEdit, onMouseEnter, onMouseLeave, onView,
           canEdit={canEdit}
           onView={onView}
           onEdit={onEdit}
+          onDelete={onDelete}
         />
       )}
     </div>
@@ -131,12 +134,15 @@ interface DepartmentRowProps {
   onTeamHover: (id: string | number | null) => void;
   onTeamView: (team: TeamNode) => void;
   onTeamEdit: (team: TeamNode) => void;
+  onDelete: () => void;
+  onTeamDelete: (team: TeamNode) => void;
 }
 
 function DepartmentRow({
   dept, isHovered, canEdit,
   onToggle, onSelect, onMouseEnter, onMouseLeave, onView, onEdit,
   teamHoveredId, onTeamHover, onTeamView, onTeamEdit,
+  onDelete, onTeamDelete,
 }: DepartmentRowProps) {
   return (
     <div className="space-y-2">
@@ -163,6 +169,7 @@ function DepartmentRow({
             onView={onView}
             canEdit={canEdit}
             onEdit={onEdit}
+            onDelete={onDelete}
           />
         )}
       </div>
@@ -179,6 +186,7 @@ function DepartmentRow({
               onMouseLeave={() => onTeamHover(null)}
               onView={() => onTeamView(team)}
               onEdit={() => onTeamEdit(team)}
+              onDelete={() => onTeamDelete(team)}
             />
           ))}
         </div>
@@ -211,6 +219,7 @@ export function CompanyStructure() {
     toggleDepartment,
     toggleBranch,
     setDepartments,
+    refetch,
   } = useCompanyStructure();
 
   const [selectedTeam, setSelectedTeam] = useState<TeamNode | null>(null);
@@ -220,7 +229,7 @@ export function CompanyStructure() {
     try {
       setIsDetailLoading(true);
       const data = await getDepartment(Number(dept.id));
-      
+
       const mappedDept: DepartmentNode = {
         id: data.id,
         name: data.department_name,
@@ -236,11 +245,11 @@ export function CompanyStructure() {
         branch_id: data.branch_id,
         expanded: dept.expanded
       };
-      
-      setDepartments(prev => 
+
+      setDepartments(prev =>
         prev.map(d => String(d.id) === String(mappedDept.id) ? { ...mappedDept, expanded: d.expanded } : d)
       );
-      
+
       setSelectedDept(mappedDept);
 
       const targetTeam = mappedDept.teams.find(t => String(t.id) === String(team.id));
@@ -261,7 +270,7 @@ export function CompanyStructure() {
     try {
       setIsDetailLoading(true);
       const data = await getDepartment(Number(dept.id));
-      
+
       const mappedDept: DepartmentNode = {
         id: data.id,
         name: data.department_name,
@@ -279,7 +288,7 @@ export function CompanyStructure() {
         expanded: dept.expanded
       };
 
-      setDepartments(prev => 
+      setDepartments(prev =>
         prev.map(d => String(d.id) === String(mappedDept.id) ? { ...mappedDept, expanded: d.expanded } : d)
       );
 
@@ -313,6 +322,32 @@ export function CompanyStructure() {
   // Team hover needs a simpler local key: use a stable string match to avoid number/string mismatch
   const teamHoveredId = hoveredNode?.type === "team" ? String(hoveredNode.id) : null;
 
+  const handleDeptDelete = async (dept: DepartmentNode) => {
+    if (window.confirm(`Are you sure you want to delete the department "${dept.name}"? This will also delete all its teams.`)) {
+      try {
+        await deleteDepartment(Number(dept.id));
+        toast.success("Department deleted successfully");
+        refetch();
+        if (selectedDept?.id === dept.id) setSelectedDept(null);
+      } catch (err: any) {
+        toast.error(err.message || "Failed to delete department");
+      }
+    }
+  };
+
+  const handleTeamDelete = async (team: TeamNode) => {
+    if (window.confirm(`Are you sure you want to delete the team "${team.name}"?`)) {
+      try {
+        await deleteTeam(Number(team.id));
+        toast.success("Team deleted successfully");
+        refetch();
+        if (selectedTeam?.id === team.id) setSelectedTeam(null);
+      } catch (err: any) {
+        toast.error(err.message || "Failed to delete team");
+      }
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-[60vh]">
@@ -345,8 +380,8 @@ export function CompanyStructure() {
                 key={btn.label}
                 onClick={btn.onClick}
                 className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all duration-200 ${btn.active
-                    ? "bg-white text-indigo-600 shadow-sm ring-1 ring-gray-200"
-                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-200/50"
+                  ? "bg-white text-indigo-600 shadow-sm ring-1 ring-gray-200"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-200/50"
                   }`}
               >
                 {btn.label}
@@ -473,22 +508,24 @@ export function CompanyStructure() {
                             {isExpanded && (
                               <div className="ml-6 space-y-3">
                                 {branchDepts.length > 0 ? branchDepts.map(dept => (
-                                    <DepartmentRow
-                                      key={dept.id}
-                                      dept={dept}
-                                      isHovered={hoveredNode?.type === "department" && String(hoveredNode.id) === String(dept.id)}
-                                      canEdit={canManageDepts}
-                                      onToggle={() => toggleDepartment(dept.id)}
-                                      onSelect={() => handleViewDepartment(dept)}
-                                      onView={() => navigate(`/company-structure/edit-department/${dept.id}?view=true`)}
-                                      onMouseEnter={() => setHoveredNode({ type: "department", id: String(dept.id) })}
-                                      onMouseLeave={() => setHoveredNode(null)}
-                                      onEdit={() => handleDeptEdit(dept)}
-                                      teamHoveredId={teamHoveredId}
-                                      onTeamHover={id => setHoveredNode(id ? { type: "team", id: String(id) } : null)}
-                                      onTeamView={team => navigate(`/company-structure/edit-department/${dept.id}?teamId=${team.id}&view=true`)}
-                                      onTeamEdit={team => handleTeamEdit(dept, team)}
-                                    />
+                                  <DepartmentRow
+                                    key={dept.id}
+                                    dept={dept}
+                                    isHovered={hoveredNode?.type === "department" && String(hoveredNode.id) === String(dept.id)}
+                                    canEdit={canManageDepts}
+                                    onToggle={() => toggleDepartment(dept.id)}
+                                    onSelect={() => handleViewDepartment(dept)}
+                                    onView={() => navigate(`/company-structure/edit-department/${dept.id}?view=true`)}
+                                    onMouseEnter={() => setHoveredNode({ type: "department", id: String(dept.id) })}
+                                    onMouseLeave={() => setHoveredNode(null)}
+                                    onEdit={() => handleDeptEdit(dept)}
+                                    teamHoveredId={teamHoveredId}
+                                    onTeamHover={id => setHoveredNode(id ? { type: "team", id: String(id) } : null)}
+                                    onTeamView={team => navigate(`/company-structure/edit-department/${dept.id}?teamId=${team.id}&view=true`)}
+                                    onTeamEdit={team => handleTeamEdit(dept, team)}
+                                    onDelete={() => handleDeptDelete(dept)}
+                                    onTeamDelete={team => handleTeamDelete(team)}
+                                  />
                                 )) : (
                                   <p className="text-xs text-gray-400 italic py-2">
                                     No departments assigned to this branch
@@ -538,10 +575,12 @@ export function CompanyStructure() {
                                   onMouseEnter={() => setHoveredNode({ type: "department", id: String(dept.id) })}
                                   onMouseLeave={() => setHoveredNode(null)}
                                   onEdit={() => handleDeptEdit(dept)}
+                                  onDelete={() => handleDeptDelete(dept)}
                                   teamHoveredId={teamHoveredId}
                                   onTeamHover={id => setHoveredNode(id ? { type: "team", id: String(id) } : null)}
                                   onTeamView={team => navigate(`/company-structure/edit-department/${dept.id}?teamId=${team.id}&view=true`)}
                                   onTeamEdit={team => handleTeamEdit(dept, team)}
+                                  onTeamDelete={team => handleTeamDelete(team)}
                                 />
                               ))}
                             </div>
@@ -613,16 +652,16 @@ export function CompanyStructure() {
               </Card>
 
               {/* Department Details */}
-              <Card>
+              {/* <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle>Department Details</CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => selectedDept && navigate(`/company-structure/edit-department/${selectedDept.id}`)}
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
+                  {selectedDept && canManageDepts && (
+                    <NodeActions
+                      onEdit={() => handleDeptEdit(selectedDept)}
+                      onDelete={() => handleDeptDelete(selectedDept)}
+                      canEdit={canManageDepts}
+                    />
+                  )}
                 </CardHeader>
                 <CardContent className="px-6 pb-6 pt-0">
                   {isDetailLoading ? (
@@ -690,26 +729,33 @@ export function CompanyStructure() {
                                       {Array.isArray(team.members) ? team.members.length : team.members}
                                     </span>
                                   </div>
+                                  {canManageDepts && (
+                                    <NodeActions
+                                      onEdit={() => handleTeamEdit(selectedDept, team)}
+                                      onDelete={() => handleTeamDelete(team)}
+                                      canEdit={canManageDepts}
+                                    />
+                                  )}
                                 </div>
                               </div>
-                              
+
                               {team.description && (
                                 <p className="text-xs text-gray-500 italic">{team.description}</p>
                               )}
-                              
+
                               <div className="flex flex-col gap-2">
                                 <div className="flex justify-between items-center text-[10px] text-gray-400 uppercase font-bold tracking-wider">
                                   <span>Team Lead</span>
                                   <span className="text-gray-900">{team.lead}</span>
                                 </div>
-                                
+
                                 {Array.isArray(team.members) && team.members.length > 0 && (
                                   <div className="flex flex-col gap-1.5 mt-1">
                                     <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Members</span>
                                     <div className="flex flex-wrap gap-1.5">
                                       {team.members.map((m: any) => (
-                                        <div 
-                                          key={m.id || m.user_id} 
+                                        <div
+                                          key={m.id || m.user_id}
                                           className="px-2 py-0.5 bg-white border border-gray-100 rounded text-[11px] font-medium text-gray-600"
                                         >
                                           {m.username}
@@ -756,7 +802,7 @@ export function CompanyStructure() {
                     </div>
                   )}
                 </CardContent>
-              </Card>
+              </Card> */}
 
               {selectedTeam && selectedDept && (
                 <Card>
@@ -795,8 +841,8 @@ export function CompanyStructure() {
                         {Array.isArray(selectedTeam.members) ? (
                           <div className="mt-3 flex flex-wrap gap-2">
                             {selectedTeam.members.map((m: any) => (
-                              <div 
-                                key={m.id || m.user_id} 
+                              <div
+                                key={m.id || m.user_id}
                                 className="px-3 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 shadow-sm"
                               >
                                 {m.username}

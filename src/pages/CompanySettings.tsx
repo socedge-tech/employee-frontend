@@ -10,6 +10,7 @@ import { ProgressBar } from "../components/company/ProgressBar.tsx";
 import { Permission } from "../types/rbac.ts";
 import { CompanyStructureForm } from "../components/company/CompanyStructureForm.tsx";
 import { usePermissions } from "../hooks/usePermissions";
+import { deleteBranch } from "../api/branches.ts";
 
 interface CompanyData {
   // Legal Entity & Tax Data
@@ -120,7 +121,7 @@ export function CompanySettings() {
   const [isLoading, setIsLoading] = useState(true);
   const [orgId, setOrgId] = useState<number | null>(null);
   const [departmentsCount, setDepartmentsCount] = useState<number>(0);
-  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const updateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const mapBranchesToLocations = (branches: any[]) =>
     (branches || []).map((branch: any) => ({
@@ -169,7 +170,7 @@ export function CompanySettings() {
       if (response?.branches) {
         setCompanyData((prev) => ({
           ...prev,
-          locations: mapBranchesToLocations(response.branches),
+          locations: mapBranchesToLocations(response.branches || []),
         }));
       }
       toast.success("Locations updated successfully");
@@ -396,7 +397,7 @@ export function CompanySettings() {
       if (savedOrg?.branches) {
         setCompanyData((prev) => ({
           ...prev,
-          locations: mapBranchesToLocations(savedOrg.branches),
+          locations: mapBranchesToLocations(savedOrg.branches || []),
         }));
       }
 
@@ -470,14 +471,31 @@ export function CompanySettings() {
     }, 1500); // Wait 1.5 seconds after the last change
   };
 
-  const removeLocation = (id: string) => {
+  const removeLocation = async (id: string) => {
     const targetId = String(id);
+    const numId = parseInt(targetId, 10);
+    const hasValidId = !isNaN(numId) && numId > 0 && targetId.length < 10; // Simple check for database ID vs timestamp
+
+    if (hasValidId) {
+      const confirmDelete = window.confirm("Are you sure you want to delete this branch? This action cannot be undone.");
+      if (!confirmDelete) return;
+
+      try {
+        await deleteBranch(numId);
+        toast.success("Branch deleted successfully");
+      } catch (error: any) {
+        toast.error("Failed to delete branch", {
+          description: error.message || "Please try again later.",
+        });
+        return; // Don't remove from state if API fails
+      }
+    }
+
     const updatedLocations = companyData.locations.filter((loc) => String(loc.id) !== targetId);
     setCompanyData((prev) => ({
       ...prev,
       locations: updatedLocations,
     }));
-    saveLocationsToAPI(updatedLocations);
   };
 
   const tabs = [
