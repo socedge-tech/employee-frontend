@@ -1,56 +1,19 @@
 import { useState, useEffect } from "react";
-import { 
-  Calendar, 
-  Clock, 
-  TrendingUp, 
-  Users, 
-  Award, 
-  CheckCircle2,
-  ArrowUpRight,
-  ArrowRight,
-  Briefcase,
-  Target,
-  Heart,
-  Zap,
-  BookOpen,
-  Trophy,
-  Newspaper,
-  ExternalLink,
-  LogIn,
-  LogOut,
-  Sparkles,
-  ChevronRight,
-  Star,
-  Bell,
-  Filter,
-  Settings,
-  MoreVertical,
-  Eye,
-  EyeOff,
-  Coffee,
-  MessageCircle,
-  UserPlus,
-  TrendingDown,
-  AlertCircle,
-  CheckCircle,
-  BarChart3,
-  Lightbulb,
-  PartyPopper
+import {
+  Calendar, Clock, TrendingUp, Users, Award,
+  CheckCircle2, ArrowUpRight, ArrowRight, Briefcase,
+  Target, Heart, Zap, BookOpen, Trophy, Newspaper,
+  ExternalLink, LogIn, LogOut, Sparkles, ChevronRight,
+  Star, Bell, Filter, Settings, MoreVertical, Eye,
+  EyeOff, Coffee, MessageCircle, UserPlus, TrendingDown,
+  AlertCircle, CheckCircle, BarChart3, Lightbulb,
+  PartyPopper, Loader2, FileText
 } from "lucide-react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-
-// User profile data - would come from auth/context in real app
-const currentUser = {
-  name: "Smith",
-  role: "Software Develpoer",
-  department: "Engineering",
-  avatar: "AC",
-  isManager: false,
-  checkInTime: "8:45 AM",
-  todayHours: "5h 30m",
-  weekHours: "22h 15m",
-  checkedIn: true,
-};
+import { useAuth } from "../context/AuthContext";
+import { getEmployee } from "../api/employees";
+import { getMyAttendanceLogs, checkIn, checkOut } from "../api/attendance";
+import { toast } from "sonner";
 
 const getGreeting = () => {
   const hour = new Date().getHours();
@@ -241,7 +204,6 @@ const engagementData = [
   { week: "W4", score: 92 },
 ];
 
-// Calendar events data
 const calendarEvents = [
   { date: 14, type: "today", events: 3 },
   { date: 15, type: "event", title: "Team Standup", time: "9:00 AM" },
@@ -252,21 +214,204 @@ const calendarEvents = [
   { date: 25, type: "holiday", title: "Company Holiday" },
 ];
 
-import { FileText } from "lucide-react";
-
 export function Dashboard() {
+  const { user } = useAuth();
+
   const [activeTab, setActiveTab] = useState<"for-you" | "team" | "company">("for-you");
   const [hiddenWidgets, setHiddenWidgets] = useState<string[]>([]);
   const [newsTab, setNewsTab] = useState<"company" | "trending">("company");
   const [currentNewsIndex, setCurrentNewsIndex] = useState(0);
-  
-  const today = new Date();
-  const currentDate = today.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  const currentTime = today.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+  // LIVE API STATES
+  const [employeeDetails, setEmployeeDetails] = useState<any>(null);
+  const [attendanceLogs, setAttendanceLogs] = useState<any[]>([]);
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [now, setNow] = useState(new Date());
+
+  const currentDate = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  // Clock tick
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000); // refresh every minute for checking out counters
+    return () => clearInterval(timer);
+  }, []);
+
+  // Fetch initial profile & attendance
+  useEffect(() => {
+    if (user?.id) {
+      getEmployee(Number(user.id))
+        .then(setEmployeeDetails)
+        .catch(err => console.error("Failed to load employee details for dashboard", err));
+
+      getMyAttendanceLogs()
+        .then(res => setAttendanceLogs(res.data || []))
+        .catch(err => console.error("Failed to load attendance logs", err));
+    }
+  }, [user?.id]);
+
+  // Derived Log state
+  // Compare by UTC date string (YYYY-MM-DD) — matches how the backend stores dates.
+  // Using local midnight causes mismatch when the client is in IST (+5:30):
+  //   e.g. March 20 00:54 IST = March 19 19:24 UTC → stored date is "2026-03-19"
+  const todayUTCDate = now.toISOString().split('T')[0]; // e.g. "2026-03-19"
+  const todayLog = attendanceLogs.find(log => {
+    const logUTCDate = new Date(log.date).toISOString().split('T')[0];
+    return logUTCDate === todayUTCDate;
+  });
+
+  const isCheckedInToday = !!todayLog && !todayLog.check_out;
+  const isCheckedOutToday = !!todayLog && !!todayLog.check_out;
+
+  const handleCheckIn = async () => {
+    setIsCheckingIn(true);
+    try {
+      await checkIn();
+      toast.success("Checked in successfully!");
+      const res = await getMyAttendanceLogs();
+      setAttendanceLogs(res.data || []);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to check in");
+    } finally {
+      setIsCheckingIn(false);
+    }
+  };
+
+  const handleCheckOut = async () => {
+    setIsCheckingOut(true);
+    try {
+      await checkOut();
+      toast.success("Checked out successfully!");
+      const res = await getMyAttendanceLogs();
+      setAttendanceLogs(res.data || []);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to check out");
+    } finally {
+      setIsCheckingOut(false);
+    }
+  };
+
+  const getTodayHours = () => {
+    if (!todayLog) return "0h 0m";
+    if (todayLog.work_hours) {
+      const hrs = Math.floor(todayLog.work_hours);
+      const mins = Math.round((todayLog.work_hours - hrs) * 60);
+      return `${hrs}h ${mins}m`;
+    }
+    if (todayLog.check_in) {
+      const msDate = now.getTime() - new Date(todayLog.check_in).getTime();
+      const totalMins = Math.floor(msDate / 60000);
+      const hrs = Math.floor(totalMins / 60);
+      const mins = Math.floor(totalMins % 60);
+      return `${hrs}h ${mins}m`;
+    }
+    return "0h 0m";
+  };
+
+  const getWeekHours = () => {
+    let totalMs = 0;
+    const currentDay = now.getDay();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - (currentDay === 0 ? 6 : currentDay - 1));
+    weekStart.setHours(0, 0, 0, 0);
+
+    attendanceLogs.forEach(log => {
+      const d = new Date(log.date);
+      if (d >= weekStart && d <= now) {
+        if (log.work_hours) {
+          totalMs += log.work_hours * 60 * 60 * 1000;
+        } else if (log.check_in && !log.check_out && d.getDate() === now.getDate()) {
+          totalMs += now.getTime() - new Date(log.check_in).getTime();
+        }
+      }
+    });
+
+    const totalMins = Math.floor(totalMs / 60000);
+    const hrs = Math.floor(totalMins / 60);
+    const mins = Math.floor(totalMins % 60);
+    return `${hrs}h ${mins}m`;
+  };
+
+  const calculateStreak = () => {
+    if (!attendanceLogs.length) return 0;
+
+    // Work with UTC date strings (YYYY-MM-DD) to match backend storage
+    const toUTC = (d: Date) => d.toISOString().split('T')[0]; // "2026-03-19"
+
+    // Sort by UTC date descending
+    const sorted = [...attendanceLogs]
+      .filter(log => log.status === 'PRESENT' || log.status === 'LATE')
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    let streak = 0;
+    // Start from today's UTC date
+    let expectedUTC = toUTC(now); // e.g. "2026-03-19"
+
+    const hasTodayLog = sorted.some(l => toUTC(new Date(l.date)) === expectedUTC);
+    if (!hasTodayLog) {
+      // Allow streak to continue even if today's check-in hasn't happened yet
+      const prev = new Date(now);
+      prev.setUTCDate(prev.getUTCDate() - 1);
+      expectedUTC = toUTC(prev);
+    }
+
+    for (const log of sorted) {
+      const logUTC = toUTC(new Date(log.date));
+
+      if (logUTC === expectedUTC) {
+        streak++;
+        const prev = new Date(expectedUTC + 'T00:00:00Z');
+        prev.setUTCDate(prev.getUTCDate() - 1);
+        expectedUTC = toUTC(prev);
+      } else if (logUTC < expectedUTC) {
+        // Skip weekends — check backward from expected until we hit logUTC or a weekday
+        let tempDate = new Date(expectedUTC + 'T00:00:00Z');
+        while (toUTC(tempDate) > logUTC) {
+          const day = tempDate.getUTCDay(); // 0=Sun, 6=Sat
+          if (day === 0 || day === 6) {
+            tempDate.setUTCDate(tempDate.getUTCDate() - 1);
+          } else {
+            break;
+          }
+        }
+        if (toUTC(tempDate) === logUTC) {
+          streak++;
+          tempDate.setUTCDate(tempDate.getUTCDate() - 1);
+          expectedUTC = toUTC(tempDate);
+        } else {
+          break;
+        }
+      }
+    }
+
+    return streak;
+  };
+
+  // Name: prefer first_name from details > username from API > part of user.name before '@'
+  const rawFallbackName = user?.name?.includes('@')
+    ? user.name.split('@')[0]           // strip email domain
+    : user?.name?.split(' ')[0] ?? 'User';
+  const displayFirstName = employeeDetails?.details?.first_name
+    || employeeDetails?.username
+    || rawFallbackName
+    || 'User';
+  const displayLastName = employeeDetails?.details?.last_name || '';
+  const avatarInitials = [
+    (displayFirstName[0] || '').toUpperCase(),
+    (displayLastName[0] || '').toUpperCase(),
+  ].join('') || 'U';
+  // Role: prefer job_role from details > first assigned role name > auth role
+  const apiRoleName = employeeDetails?.roles?.[0]?.role?.role_name;
+  const displayRole = employeeDetails?.details?.job_role
+    || (apiRoleName ? apiRoleName.replace(/\b\w/g, (c: string) => c.toUpperCase()) : null)
+    || user?.role?.replace(/_/g, ' ')
+    || 'Employee';
+  const displayDepart = employeeDetails?.details?.department?.department_name || '';
+
 
   const toggleWidget = (widgetId: string) => {
-    setHiddenWidgets(prev => 
-      prev.includes(widgetId) 
+    setHiddenWidgets(prev =>
+      prev.includes(widgetId)
         ? prev.filter(id => id !== widgetId)
         : [...prev, widgetId]
     );
@@ -277,40 +422,37 @@ export function Dashboard() {
   // Filter feed based on active tab
   const getFilteredFeed = () => {
     if (activeTab === "team") {
-      return priorityFeedItems.filter(item => 
+      return priorityFeedItems.filter(item =>
         ["approval", "team-update"].includes(item.type)
       );
     }
     if (activeTab === "company") {
-      return priorityFeedItems.filter(item => 
+      return priorityFeedItems.filter(item =>
         item.type === "team-update"
       );
     }
-    return priorityFeedItems.filter(item => 
-      !item.showIfManager || currentUser.isManager
-    );
+    return priorityFeedItems; // Show all for testing
   };
 
   const filteredFeed = getFilteredFeed();
 
   // Auto-rotate news carousel
   useEffect(() => {
-    const currentNews = newsTab === "company" ? companyNews : trendingNews;
+    const currentNewsList = newsTab === "company" ? companyNews : trendingNews;
     const interval = setInterval(() => {
-      setCurrentNewsIndex((prev) => (prev + 1) % currentNews.length);
-    }, 5000); // Change news every 5 seconds
-
+      setCurrentNewsIndex((prev) => (prev + 1) % currentNewsList.length);
+    }, 5000);
     return () => clearInterval(interval);
   }, [newsTab]);
 
   const getCurrentNews = () => {
-    const currentNews = newsTab === "company" ? companyNews : trendingNews;
-    const mainIndex = currentNewsIndex % currentNews.length;
-    const previewIndex = (currentNewsIndex + 1) % currentNews.length;
-    
+    const currentNewsList = newsTab === "company" ? companyNews : trendingNews;
+    const mainIndex = currentNewsIndex % currentNewsList.length;
+    const previewIndex = (currentNewsIndex + 1) % currentNewsList.length;
+
     return {
-      main: currentNews[mainIndex],
-      preview: currentNews[previewIndex],
+      main: currentNewsList[mainIndex],
+      preview: currentNewsList[previewIndex],
       isCompany: newsTab === "company"
     };
   };
@@ -331,23 +473,23 @@ export function Dashboard() {
           <div className="flex items-start justify-between mb-6">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center text-white text-2xl font-bold border-2 border-white/30 shadow-lg">
-                {currentUser.avatar}
+                {avatarInitials}
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <h1 className="text-3xl font-bold text-white">
-                    {getGreeting()}, {currentUser.name.split(' ')[0]}! 👋
+                    {getGreeting()}, <span className="capitalize">{displayFirstName}</span>! 👋
                   </h1>
                 </div>
-                <p className="text-blue-100 text-sm">{currentUser.role} • {currentUser.department}</p>
+                <p className="text-blue-100 text-sm">{displayRole} • {displayDepart}</p>
               </div>
             </div>
-            
+
             {/* Quick Stats */}
             <div className="flex items-center gap-3">
               <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20">
                 <p className="text-xs text-blue-100">Streak</p>
-                <p className="text-xl font-bold text-white">12 days</p>
+                <p className="text-xl font-bold text-white">{calculateStreak()} days</p>
               </div>
               <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20">
                 <p className="text-xs text-blue-100">Tasks</p>
@@ -381,14 +523,22 @@ export function Dashboard() {
                     <p className="text-xs text-blue-100">{currentDate}</p>
                   </div>
                 </div>
-                {currentUser.checkedIn ? (
-                  <button className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-red-500/80 hover:border-red-400 backdrop-blur-sm rounded-lg text-white text-sm font-medium transition-all border border-white/30 hover:shadow-lg hover:shadow-red-500/20 hover:scale-105">
-                    <LogOut className="w-4 h-4" />
-                    Check Out
+                {isCheckedInToday ? (
+                  <button
+                    disabled={isCheckingOut || isCheckedOutToday}
+                    onClick={handleCheckOut}
+                    className={`flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-lg text-white text-sm font-medium transition-all border border-white/30 ${isCheckedOutToday ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/80 hover:border-red-400 hover:shadow-lg hover:shadow-red-500/20 hover:scale-105'}`}
+                  >
+                    {isCheckingOut ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
+                    {isCheckedOutToday ? "Checked Out" : "Check Out"}
                   </button>
                 ) : (
-                  <button className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-white/90 rounded-lg text-blue-600 text-sm font-medium transition-all shadow-lg hover:scale-105">
-                    <LogIn className="w-4 h-4" />
+                  <button
+                    disabled={isCheckingIn}
+                    onClick={handleCheckIn}
+                    className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-white/90 rounded-lg text-blue-600 text-sm font-medium transition-all shadow-lg hover:scale-105"
+                  >
+                    {isCheckingIn ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
                     Check In
                   </button>
                 )}
@@ -396,15 +546,15 @@ export function Dashboard() {
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <p className="text-xs text-blue-100">Check In</p>
-                  <p className="text-sm font-semibold text-white">{currentUser.checkInTime}</p>
+                  <p className="text-sm font-semibold text-white">{todayLog?.check_in ? new Date(todayLog.check_in).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : " "}</p>
                 </div>
                 <div>
                   <p className="text-xs text-blue-100">Today</p>
-                  <p className="text-sm font-semibold text-white">{currentUser.todayHours}</p>
+                  <p className="text-sm font-semibold text-white">{getTodayHours()}</p>
                 </div>
                 <div>
                   <p className="text-xs text-blue-100">This Week</p>
-                  <p className="text-sm font-semibold text-white">{currentUser.weekHours}</p>
+                  <p className="text-sm font-semibold text-white">{getWeekHours()}</p>
                 </div>
               </div>
             </div>
@@ -442,7 +592,7 @@ export function Dashboard() {
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 onClick={() => toggleWidget("goals")}
                 className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
                 title="Hide widget"
@@ -494,31 +644,28 @@ export function Dashboard() {
         <div className="flex items-center gap-2 mb-6 pb-3 border-b border-slate-200">
           <button
             onClick={() => setActiveTab("for-you")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeTab === "for-you"
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === "for-you"
                 ? "bg-blue-100 text-blue-700"
                 : "text-slate-600 hover:bg-slate-100"
-            }`}
+              }`}
           >
             For You
           </button>
           <button
             onClick={() => setActiveTab("team")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeTab === "team"
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === "team"
                 ? "bg-blue-100 text-blue-700"
                 : "text-slate-600 hover:bg-slate-100"
-            }`}
+              }`}
           >
             Team
           </button>
           <button
             onClick={() => setActiveTab("company")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeTab === "company"
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === "company"
                 ? "bg-blue-100 text-blue-700"
                 : "text-slate-600 hover:bg-slate-100"
-            }`}
+              }`}
           >
             Company
           </button>
@@ -549,7 +696,7 @@ export function Dashboard() {
                 <Calendar className="w-5 h-5 text-purple-600" />
                 <h3 className="text-lg font-semibold text-slate-900">Upcoming Today</h3>
               </div>
-              <button 
+              <button
                 onClick={() => toggleWidget("events")}
                 className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
               >
@@ -590,7 +737,7 @@ export function Dashboard() {
                 <Sparkles className="w-5 h-5 text-blue-600" />
                 <h3 className="text-lg font-semibold text-slate-900">Recommended for You</h3>
               </div>
-              <button 
+              <button
                 onClick={() => toggleWidget("recommendations")}
                 className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
               >
@@ -632,7 +779,7 @@ export function Dashboard() {
                 <h3 className="text-lg font-semibold text-slate-900">Your Engagement Trend</h3>
                 <p className="text-sm text-slate-500">Last 4 weeks • +12% increase</p>
               </div>
-              <button 
+              <button
                 onClick={() => toggleWidget("engagement")}
                 className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
               >
@@ -670,7 +817,7 @@ export function Dashboard() {
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-slate-200/60 shadow-lg">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold text-slate-900">Quick Access</h3>
-              <button 
+              <button
                 onClick={() => toggleWidget("quick-access")}
                 className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
               >
@@ -702,7 +849,7 @@ export function Dashboard() {
               <h3 className="text-lg font-semibold text-slate-900">March 2026</h3>
             </div>
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 onClick={() => toggleWidget("calendar")}
                 className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
               >
@@ -739,21 +886,20 @@ export function Dashboard() {
               const event = calendarEvents.find(e => e.date === day);
               const isToday = day === 14;
               const hasEvent = !!event && event.type !== 'today';
-              
+
               return (
                 <button
                   key={day}
-                  className={`aspect-square flex flex-col items-center justify-center rounded-lg text-sm transition-all relative group ${
-                    isToday
+                  className={`aspect-square flex flex-col items-center justify-center rounded-lg text-sm transition-all relative group ${isToday
                       ? 'bg-gradient-to-br from-blue-600 to-purple-600 text-white font-semibold shadow-lg shadow-blue-500/30'
                       : hasEvent && event.type === 'holiday'
-                      ? 'bg-gradient-to-br from-green-100 to-green-50 text-green-700 hover:from-green-200 hover:to-green-100 border border-green-200'
-                      : hasEvent && event.type === 'deadline'
-                      ? 'bg-gradient-to-br from-red-100 to-red-50 text-red-700 hover:from-red-200 hover:to-red-100 border border-red-200'
-                      : hasEvent
-                      ? 'bg-gradient-to-br from-blue-100 to-blue-50 text-blue-700 hover:from-blue-200 hover:to-blue-100 border border-blue-200'
-                      : 'text-slate-700 hover:bg-slate-100'
-                  }`}
+                        ? 'bg-gradient-to-br from-green-100 to-green-50 text-green-700 hover:from-green-200 hover:to-green-100 border border-green-200'
+                        : hasEvent && event.type === 'deadline'
+                          ? 'bg-gradient-to-br from-red-100 to-red-50 text-red-700 hover:from-red-200 hover:to-red-100 border border-red-200'
+                          : hasEvent
+                            ? 'bg-gradient-to-br from-blue-100 to-blue-50 text-blue-700 hover:from-blue-200 hover:to-blue-100 border border-blue-200'
+                            : 'text-slate-700 hover:bg-slate-100'
+                    }`}
                 >
                   <span>{day}</span>
                   {hasEvent && event.type === 'event' && event.events && (
@@ -762,7 +908,7 @@ export function Dashboard() {
                   {isToday && (
                     <span className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></span>
                   )}
-                  
+
                   {/* Tooltip on hover */}
                   {hasEvent && event.title && (
                     <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-3 py-2 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
@@ -817,7 +963,7 @@ export function Dashboard() {
               <h3 className="text-lg font-semibold text-slate-900">News & Updates</h3>
             </div>
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 onClick={() => toggleWidget("news")}
                 className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
               >
@@ -834,21 +980,19 @@ export function Dashboard() {
           <div className="flex items-center gap-2 mb-6 pb-3 border-b border-slate-200">
             <button
               onClick={() => setNewsTab("company")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                newsTab === "company"
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${newsTab === "company"
                   ? "bg-blue-100 text-blue-700"
                   : "text-slate-600 hover:bg-slate-100"
-              }`}
+                }`}
             >
               Company News
             </button>
             <button
               onClick={() => setNewsTab("trending")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                newsTab === "trending"
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${newsTab === "trending"
                   ? "bg-purple-100 text-purple-700"
                   : "text-slate-600 hover:bg-slate-100"
-              }`}
+                }`}
             >
               <div className="flex items-center gap-1">
                 <TrendingUp className="w-4 h-4" />
@@ -865,7 +1009,7 @@ export function Dashboard() {
                   Relevant to you
                 </span>
               </div>
-              
+
               {/* Main news (3/4 width) + Preview news (1/4 width) */}
               <div className="flex gap-4">
                 {/* Main News - 3/4 width */}
@@ -928,7 +1072,7 @@ export function Dashboard() {
                       </div>
                       <div className="flex items-center gap-2 mt-2">
                         <div className="flex-1 h-1 bg-slate-200 rounded-full overflow-hidden">
-                          <div 
+                          <div
                             className="h-full bg-gradient-to-r from-blue-600 to-purple-600 rounded-full transition-all duration-5000"
                             style={{ width: `${((currentNewsIndex % companyNews.length) / (companyNews.length - 1)) * 100}%` }}
                           ></div>
@@ -950,7 +1094,7 @@ export function Dashboard() {
                   Industry Insights
                 </span>
               </div>
-              
+
               {/* Main news (3/4 width) + Preview news (1/4 width) */}
               <div className="flex gap-4">
                 {/* Main News - 3/4 width */}
@@ -1011,7 +1155,7 @@ export function Dashboard() {
                       </div>
                       <div className="flex items-center gap-2 mt-2">
                         <div className="flex-1 h-1 bg-slate-200 rounded-full overflow-hidden">
-                          <div 
+                          <div
                             className="h-full bg-gradient-to-r from-purple-600 to-pink-600 rounded-full transition-all duration-5000"
                             style={{ width: `${((currentNewsIndex % trendingNews.length) / (trendingNews.length - 1)) * 100}%` }}
                           ></div>
@@ -1068,15 +1212,14 @@ function FeedItem({ item }: { item: any }) {
 
   return (
     <div
-      className={`p-4 rounded-xl border transition-all hover:shadow-md ${
-        priorityColors[item.priority as keyof typeof priorityColors]
-      }`}
+      className={`p-4 rounded-xl border transition-all hover:shadow-md ${priorityColors[item.priority as keyof typeof priorityColors]
+        }`}
     >
       <div className="flex items-start gap-4">
         <div className={`w-10 h-10 bg-gradient-to-br ${iconColors[item.color as keyof typeof iconColors]} rounded-xl flex items-center justify-center shadow-lg flex-shrink-0`}>
           <item.icon className="w-5 h-5 text-white" />
         </div>
-        
+
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-1">
             <h4 className="text-sm font-semibold text-slate-900">{item.title}</h4>
@@ -1086,9 +1229,9 @@ function FeedItem({ item }: { item: any }) {
               </span>
             )}
           </div>
-          
+
           <p className="text-sm text-slate-600 mb-2">{item.description}</p>
-          
+
           {item.progress !== undefined && (
             <div className="flex items-center gap-2 mb-2">
               <div className="flex-1 bg-slate-200 rounded-full h-1.5">
@@ -1100,7 +1243,7 @@ function FeedItem({ item }: { item: any }) {
               <span className="text-xs font-semibold text-slate-700">{item.progress}%</span>
             </div>
           )}
-          
+
           <div className="flex items-center gap-2">
             {item.time && (
               <span className="text-xs text-slate-500">{item.time}</span>

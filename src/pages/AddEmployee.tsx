@@ -463,7 +463,7 @@ export function AddEmployee() {
 
       employee_id: formData.employeeId || undefined,
       department_id: formData.department ? Number(formData.department) : undefined,
-      job_role: capitalizeFirstLetter(rolesList.find(r => r.id.toString() === formData.role)?.role_name || formData.role) || undefined,
+      job_role: capitalizeFirstLetter(rolesList.find(r => r.id.toString() === formData.role)?.name || formData.role) || undefined,
       role_id: formData.role ? Number(formData.role) : undefined,
       employment_type: formData.employeeType || undefined,
       start_date: formData.startDate || undefined,
@@ -1281,6 +1281,35 @@ export function AddEmployee() {
                             />
                           </div>
                         </div>
+                        <select
+                          name="role"
+                          value={formData.role}
+                          onChange={handleInputChange}
+                          disabled={loadingStates.roles}
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errorStates.roles ? 'border-red-500' : 'border-gray-300'}`}
+                        >
+                          <option value="">{loadingStates.roles ? "Loading Roles..." : "Select Role"}</option>
+                          {rolesList.map((role) => (
+                            <option key={role.id} value={role.id}>{role.name}</option>
+                          ))}
+                        </select>
+                        {errorStates.roles && <p className="text-xs text-red-500 mt-1">{errorStates.roles}</p>}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Employment Type <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          name="employeeType"
+                          value={formData.employeeType}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="Full-time">Full-time</option>
+                          <option value="Part-time">Part-time</option>
+                          <option value="Contract">Contract</option>
+                          <option value="Intern">Intern</option>
+                        </select>
                       </div>
                     )}
 

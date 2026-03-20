@@ -2,9 +2,10 @@ import axiosInstance from "./axiosInstance";
 
 export interface Role {
   id: number;
-  role_name: string;
+  name: string;
   description: string;
   status: boolean;
+  user_count?: number;
   created_at: string;
   updated_at: string;
   permissions?: any[];
@@ -51,5 +52,19 @@ export const deleteRole = async (id: number): Promise<void> => {
     await axiosInstance.delete(`/roles/${id}`);
   } catch (error: any) {
     throw error.response?.data || { message: "Failed to delete role" };
+  }
+};
+
+export const updateRolePermissions = async (
+  id: number,
+  data: {
+    permissions: { id: number; scope?: string }[];
+  }
+) => {
+  try {
+    const response = await axiosInstance.put(`/roles/${id}/permissions`, data);
+    return response.data.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Failed to update role permissions" };
   }
 };
